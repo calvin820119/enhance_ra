@@ -14,80 +14,6 @@ static FILE *fout;
 static char str_fin_name[] = "config.in";
 static char str_fout_name[50];
 
-int main(int argc, char *argv[]){
-
-    ext_ra_inst_t ext_ra_inst;
-	
-    initialize(&ext_ra_inst);
-#ifdef file_input
-	if((FILE *)0 == (fin = fopen(str_fin_name, "r"))){
-		printf(".in file access error!\n");
-		return 1;
-	}
-	fscanf(fin, "%d %d %d %f %d %d %f %d", &ext_ra_inst.total_ras, &ext_ra_inst.number_of_preamble, &ext_ra_inst.num_ue, &ext_ra_inst.ra_period, &ext_ra_inst.max_retransmit, &ext_ra_inst.back_off_window_size, &ext_ra_inst.mean_interarrival, &ext_ra_inst.rar_type);
-#else
-    if(9 != argc){
-		printf("Usage: ./[exe] [total ras] [# of preamble] [# of ue] [max trans] [backoff window] [mean interarrival] [# of rar]\n");
-		return 1;
-	}else{
-	    sscanf(*(argv+1), "%d", &ext_ra_inst.total_ras);
-        sscanf(*(argv+2), "%d", &ext_ra_inst.number_of_preamble);
-        sscanf(*(argv+3), "%d", &ext_ra_inst.num_ue);
-        sscanf(*(argv+4), "%f", &ext_ra_inst.ra_period);
-        sscanf(*(argv+5), "%d", &ext_ra_inst.max_retransmit);
-        sscanf(*(argv+6), "%d", &ext_ra_inst.back_off_window_size);
-        sscanf(*(argv+7), "%f", &ext_ra_inst.mean_interarrival);
-        sscanf(*(argv+8), "%d", &ext_ra_inst.rar_type);
-    }
-#endif
-
-	sprintf(str_fout_name, "out/rar%d.out", ext_ra_inst.rar_type);
-
-	if((FILE *)0 == (fout = fopen(str_fout_name, "ab+"))){
-		printf(".out file access error!\n");
-		return 1;
-	}
-	
-    initialize_ue_preamble(&ext_ra_inst);
-#ifdef print_output
-    printf("-------------------------------------------------\n");
-    printf("Number of preamble :         %d\n", ext_ra_inst.number_of_preamble);
-    printf("Number of UE :               %d\n", ext_ra_inst.num_ue);
-    printf("Number of RAR extended :     %d\n", ext_ra_inst.rar_type);
-    printf("RAs period :                 %f sec\n", ext_ra_inst.ra_period);
-    printf("Maximum retransmit times :   %d\n", ext_ra_inst.max_retransmit);
-    printf("Uniform backoff window :     %d\n", ext_ra_inst.back_off_window_size);
-    printf("Each UE mean inter-arrival : %f sec\n", ext_ra_inst.mean_interarrival);
-    printf("Total simulated RAs :        %d\n", ext_ra_inst.total_ras);
-    printf("-------------------------------------------------\n\nrun...\n");
-#endif
-	do{
-	    timing(&ext_ra_inst);
-	    switch(next_event_type){
-	        case event_ra_period:
-	                ra_procedure(&ext_ra_inst);
-	                ue_backoff_process(&ext_ra_inst);
-	            break;
-	        case event_stop:
-#ifdef print_output
-	            printf("report...\n\n");
-#endif
-	            report(&ext_ra_inst);
-		    break;
-	        default:
-	            ue_arrival(&ext_ra_inst, next_event_type);
-	            break;
-	    }
-	
-	}while(event_stop != next_event_type);
-
-#ifdef file_input
-	fclose(fin);
-#endif
-	fclose(fout);
-	return 0;
-}
-
 float exponetial(float mean){
     return -mean * log(lcgrand(1));
 }
@@ -99,7 +25,7 @@ int msg2_find_ta(ue_t *list){
 	float max_distance, distance;
 	max_distance = 0.0f;
 	while((ue_t *)0 != p){
-		distance = (float)root(pow(p->location_x, 2), pow(p->location_y, 2));
+		distance = (float)sqrt(pow(p->location_x, 2) + pow(p->location_y, 2));
 		if(max_distance < distance){
 			max_distance = distance;
 		}
@@ -127,7 +53,7 @@ void msg3_procedure(){
 }
 
 void msg2_procedure(ext_ra_inst_t *inst){
-	
+/*	
     int i;
     int rar;
     ue_t *iterator, *iterator1;
@@ -203,6 +129,7 @@ void msg2_procedure(ext_ra_inst_t *inst){
 		inst->preamble_table[i].selected = 0;
     }
     time_next_event[event_ra_period] = sim_time + inst->ra_period;
+*/
 }
 
 void ue_arrival(ext_ra_inst_t *inst, int next_event_type){
@@ -226,12 +153,12 @@ void ue_selected_preamble(ext_ra_inst_t *inst, int ue_id){
     inst->ue_list[ue_id].preamble_index = preamble_index;
     
     //  choose RAR
-    inst->preamble_table[preamble_index].num_selected_rar[rar_index] += 1;
-    if( (ue_t *)0 == inst->preamble_table[preamble_index].rar_ue_list[rar_index] ){
-        inst->preamble_table[preamble_index].rar_ue_list[rar_index] = &inst->ue_list[ue_id];
+    inst->preamble_table[preamble_index].num_selected += 1;
+    if( (ue_t *)0 == inst->preamble_table[preamble_index].rar_ue ){
+        inst->preamble_table[preamble_index].rar_ue = &inst->ue_list[ue_id];
 		inst->ue_list[ue_id].next = (ue_t *)0;
     }else{
-        iterator2 = inst->preamble_table[preamble_index].rar_ue_list[rar_index];
+        iterator2 = inst->preamble_table[preamble_index].rar_ue;
         
         while( (ue_t *)0 != iterator2->next ){
             iterator2 = iterator2->next;
@@ -261,10 +188,8 @@ void initialize_ue_preamble(ext_ra_inst_t *inst){
     }
     
     for(i=0;i<inst->number_of_preamble;++i){
-    	for(j=0;j<inst->rar_type;++j){
-    		inst->preamble_table[i].num_selected_rar[j] = 0;
-    		inst->preamble_table[i].rar_ue_list[j] = (ue_t *)0;
-		}
+    		inst->preamble_table[i].num_selected = 0;
+    		inst->preamble_table[i].rar_ue = (ue_t *)0;
 	}
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
@@ -300,7 +225,6 @@ void initialize(ext_ra_inst_t *inst){
     inst->max_retransmit = 0;
     inst->back_off_window_size = 0;
     inst->mean_interarrival = 0.0f;
-	inst->rar_type = (rar_t)conventional;
 	
 	inst->ue_list = (ue_t *)0;
 	inst->preamble_table = (preamble_t *)0;
@@ -375,6 +299,80 @@ void report(ext_ra_inst_t *inst){
 
 }
 
+
+int main(int argc, char *argv[]){
+
+    ext_ra_inst_t ext_ra_inst;
+	
+    initialize(&ext_ra_inst);
+#ifdef file_input
+	if((FILE *)0 == (fin = fopen(str_fin_name, "r"))){
+		printf(".in file access error!\n");
+		return 1;
+	}
+	fscanf(fin, "%d %d %d %f %d %d %f %d", &ext_ra_inst.total_ras, &ext_ra_inst.number_of_preamble, &ext_ra_inst.num_ue, &ext_ra_inst.ra_period, &ext_ra_inst.max_retransmit, &ext_ra_inst.back_off_window_size, &ext_ra_inst.mean_interarrival, &ext_ra_inst.rar_type);
+#else
+    if(9 != argc){
+		printf("Usage: ./[exe] [total ras] [# of preamble] [# of ue] [max trans] [backoff window] [mean interarrival] [# of rar]\n");
+		return 1;
+	}else{
+	    sscanf(*(argv+1), "%d", &ext_ra_inst.total_ras);
+        sscanf(*(argv+2), "%d", &ext_ra_inst.number_of_preamble);
+        sscanf(*(argv+3), "%d", &ext_ra_inst.num_ue);
+        sscanf(*(argv+4), "%f", &ext_ra_inst.ra_period);
+        sscanf(*(argv+5), "%d", &ext_ra_inst.max_retransmit);
+        sscanf(*(argv+6), "%d", &ext_ra_inst.back_off_window_size);
+        sscanf(*(argv+7), "%f", &ext_ra_inst.mean_interarrival);
+        sscanf(*(argv+8), "%d", &ext_ra_inst.rar_type);
+    }
+#endif
+
+	sprintf(str_fout_name, "out/rar%d.out", ext_ra_inst.rar_type);
+
+	if((FILE *)0 == (fout = fopen(str_fout_name, "ab+"))){
+		printf(".out file access error!\n");
+		return 1;
+	}
+	
+    initialize_ue_preamble(&ext_ra_inst);
+#ifdef print_output
+    printf("-------------------------------------------------\n");
+    printf("Number of preamble :         %d\n", ext_ra_inst.number_of_preamble);
+    printf("Number of UE :               %d\n", ext_ra_inst.num_ue);
+    printf("Number of RAR extended :     %d\n", ext_ra_inst.rar_type);
+    printf("RAs period :                 %f sec\n", ext_ra_inst.ra_period);
+    printf("Maximum retransmit times :   %d\n", ext_ra_inst.max_retransmit);
+    printf("Uniform backoff window :     %d\n", ext_ra_inst.back_off_window_size);
+    printf("Each UE mean inter-arrival : %f sec\n", ext_ra_inst.mean_interarrival);
+    printf("Total simulated RAs :        %d\n", ext_ra_inst.total_ras);
+    printf("-------------------------------------------------\n\nrun...\n");
+#endif
+	do{
+	    timing(&ext_ra_inst);
+	    switch(next_event_type){
+	        case event_ra_period:
+	                msg2_procedure(&ext_ra_inst);
+	                ue_backoff_process(&ext_ra_inst);
+	            break;
+	        case event_stop:
+#ifdef print_output
+	            printf("report...\n\n");
+#endif
+	            report(&ext_ra_inst);
+		    break;
+	        default:
+	            ue_arrival(&ext_ra_inst, next_event_type);
+	            break;
+	    }
+	
+	}while(event_stop != next_event_type);
+
+#ifdef file_input
+	fclose(fin);
+#endif
+	fclose(fout);
+	return 0;
+}
 
 
 
