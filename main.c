@@ -4,6 +4,8 @@
 #include "main.h"
 #include "lcgrand.h"
 
+#define file_input
+
 static float sim_time;
 static float stop_time;
 static float time_next_event[num_normal_event];
@@ -347,6 +349,11 @@ int main(int argc, char *argv[]){
     printf("Total simulated RAs :        %d\n", ext_ra_inst.total_ras);
     printf("-------------------------------------------------\n\nrun...\n");
 #endif
+	int i;
+	for(i=0;i<ext_ra_inst.num_ue;++i){
+        printf("%f\n",ext_ra_inst.ue_list[i].location_x);
+	}
+
 	do{
 	    timing(&ext_ra_inst);
 	    switch(next_event_type){
