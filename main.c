@@ -6,6 +6,8 @@
 
 #define file_input
 
+const double pi = 3.14159265;
+
 static float sim_time;
 static float stop_time;
 static float time_next_event[num_normal_event];
@@ -20,6 +22,9 @@ float exponetial(float mean){
     return -mean * log(lcgrand(1));
 }
 
+int algo_msg3_tx(int ta, int orig_ta){
+	return 1;
+}
 
 //	11 bits
 int msg2_find_ta(ue_t *list){
@@ -55,107 +60,34 @@ void msg3_procedure(){
 }
 
 void msg2_procedure(ext_ra_inst_t *inst){
-/*	
-    int i;
-    int rar;
-    ue_t *iterator, *iterator1;
-    
-    inst->ras+=1;    
-    
-    // RAR process
-    for(i=0;i<inst->number_of_preamble;++i){
-        //for(rar=0;rar<inst->rar_type;++rar){
-            if(inst->preamble_table[i].num_selected > 1){
-            	inst->preamble_table[i].selected = 1;
-            	
-                //  collision
-                inst->collide += inst->preamble_table[i].num_selected_rar[rar];
-                iterator = inst->preamble_table[i].rar_ue_list[rar];
-                while((ue_t *)0 != iterator){
-                    iterator = iterator->next;
-                }
-                
-                iterator = inst->preamble_table[i].rar_ue_list[rar];
-                while((ue_t *)0 != iterator){
-                    if(iterator->retransmit_counter >= inst->max_retransmit){
-                        //  failed
-                        inst->failed += 1;
-                        iterator->retransmit_counter = 0;
-                        iterator->backoff_counter = 0;
-                        iterator->is_active = 0;
-                        iterator->arrival_time = sim_time + exponetial(inst->mean_interarrival);
-                        
-                    }else{
-                        inst->retransmit += 1;
-                        //  retransmit
-                        iterator->retransmit_counter += 1;
-                        //  uniform backoff
-                        iterator->backoff_counter = (int)(inst->back_off_window_size*lcgrand(4));
-                    }
-                    iterator1 = iterator;
-                    iterator = iterator->next;
-                    iterator1->next = (ue_t *)0;
-                }
-            }else if(inst->preamble_table[i].num_selected == 1){
-            	inst->preamble_table[i].selected = 1;
-            	
-                //  success
-                inst->total_access_delay += sim_time - inst->preamble_table[i].rar_ue_list[rar]->access_delay;
-                inst->success+=1;
-                
-                inst->preamble_table[i].rar_ue_list[rar]->is_active = 0x0;
-                inst->preamble_table[i].rar_ue_list[rar]->retransmit_counter = 0x0;
-                inst->preamble_table[i].rar_ue_list[rar]->backoff_counter = 0;
-                inst->preamble_table[i].rar_ue_list[rar]->arrival_time = sim_time + exponetial(inst->mean_interarrival);
-                inst->preamble_table[i].rar_ue_list[rar]->next = (ue_t *)0;
-                
-            }
-            
-            
-        }
-        
-        for(rar=0;rar<inst->rar_type;++rar){
-        	if(inst->preamble_table[i].selected == 1){
-        		if(inst->preamble_table[i].num_selected_rar[rar] == 1){
-        			inst->rar_success += 1;
-				}else if(inst->preamble_table[i].num_selected_rar[rar] > 1){
-					inst->rar_failed += 1;
-				}else{
-					inst->rar_waste += 1;
-				}
-			}
-			// clear rar table after finished calculation RAR_Wasted
-			inst->preamble_table[i].rar_ue_list[rar] = (ue_t *)0;
-			inst->preamble_table[i].num_selected_rar[rar] = 0;
-		}
-		inst->preamble_table[i].selected = 0;
-    }
-    time_next_event[event_ra_period] = sim_time + inst->ra_period;
-*/
+	inst->ras++;
+	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
 
 void ue_arrival(ext_ra_inst_t *inst, int next_event_type){
     int ue_id = next_event_type - num_normal_event;
     inst->attempt+=1;
     inst->ue_list[ue_id].access_delay = sim_time;
-    ue_selected_preamble(inst, ue_id);
+    inst->ue_list[ue_id].is_active = 0x1;
+    //ue_selected_preamble(inst, ue_id);
 }
 
 void ue_selected_preamble(ext_ra_inst_t *inst, int ue_id){
     ue_t *iterator2;
     int preamble_index;
-    int rar_index;
+    //int rar_index;
     
     inst->trial+=1;
     
     preamble_index = (int)(inst->number_of_preamble*lcgrand(2));
-    rar_index = (int)(inst->rar_type*lcgrand(3));
+    //rar_index = (int)(inst->rar_type*lcgrand(3));
     
-    inst->ue_list[ue_id].is_active = 0x1;
+    
     inst->ue_list[ue_id].preamble_index = preamble_index;
     
     //  choose RAR
     inst->preamble_table[preamble_index].num_selected += 1;
+    
     if( (ue_t *)0 == inst->preamble_table[preamble_index].rar_ue ){
         inst->preamble_table[preamble_index].rar_ue = &inst->ue_list[ue_id];
 		inst->ue_list[ue_id].next = (ue_t *)0;
@@ -172,7 +104,8 @@ void ue_selected_preamble(ext_ra_inst_t *inst, int ue_id){
 
 void initialize_ue_preamble(ext_ra_inst_t *inst){
     int i, j;
-    
+    float rand_radius;
+    float rand_angle;
     inst->ue_list = (ue_t *)malloc(inst->num_ue*sizeof(ue_t));
 	inst->preamble_table = (preamble_t *)malloc(inst->number_of_preamble*sizeof(preamble_t));
     inst->eNB_radius = 10000;	//	default 10,000 m, 10km
@@ -184,9 +117,11 @@ void initialize_ue_preamble(ext_ra_inst_t *inst){
         inst->ue_list[i].arrival_time = sim_time + exponetial(inst->mean_interarrival);
         inst->ue_list[i].next = (ue_t *)0;
         inst->ue_list[i].access_delay = 0;
-	inst->ue_list[i].location_x = lcgrand(3)*7000;
-	inst->ue_list[i].location_y = lcgrand(4)*7000;	
-	inst->ue_list[i].ta = -1;
+        rand_radius = inst->eNB_radius * lcgrand(3);
+        rand_angle = 2* pi * lcgrand(4);
+		inst->ue_list[i].location_x = rand_radius * cos( rand_angle );
+		inst->ue_list[i].location_y = rand_radius * sin( rand_angle );
+		inst->ue_list[i].ta = -1;
     }
     
     for(i=0;i<inst->number_of_preamble;++i){
@@ -351,11 +286,13 @@ int main(int argc, char *argv[]){
 #endif
 	int i;
 	for(i=0;i<ext_ra_inst.num_ue;++i){
-        printf("%f\n",ext_ra_inst.ue_list[i].location_x);
+        printf("UE%03d (%f, %f) arrival:%f\n", i, ext_ra_inst.ue_list[i].location_x, ext_ra_inst.ue_list[i].location_y, ext_ra_inst.ue_list[i].arrival_time);
 	}
 
 	do{
+		
 	    timing(&ext_ra_inst);
+	    printf("%f %d\n", sim_time, next_event_type);
 	    switch(next_event_type){
 	        case event_ra_period:
 	                msg2_procedure(&ext_ra_inst);
