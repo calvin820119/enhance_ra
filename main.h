@@ -8,27 +8,54 @@ typedef enum events_e{
 	num_normal_event
 }events_t;
 
+typedef enum ue_state_e{
+	idle=0,
+	msg1,
+	msg2,
+	msg3,
+	msg4
+}ue_state_t;
+
 typedef struct ue_s{
+	ue_state_t state;
 	//	follow exponetial, indicate next arrival time.
 	float arrival_time;
+	
+	///	MSG1
 	//	preamble index selected for random access procedure.
 	int preamble_index;
-	//	acitve: during random access procedure(from msg1 to msg3 finish, including HARQ), inactive: failure or sucess, wait until next arrival time.
-	int is_active;
 	//	backoff triggered-> retransmit+1
 	int retransmit_counter;
 	int backoff_counter;
-	//	statistic
-	float access_delay;
+	
+	/// MSG2
+	//	timing advance value
+	int ta;
+	
+	/// MSG3
+	//	msg3 HARQ round times
+	int msg3_harq_round;
+	
+	/// MSG4
+	
+	/// GLOBAL
 	//	used for msg1, msg3
 	struct ue_s *next;
 	//	NB-IoT UE fixed location
 	float location_x;
 	float location_y;
-	//	timing advance value(memorize)
-	int ta;
-	//	msg3 HARQ round times
-	int msg3_harq_round;
+	float distance;
+	
+	//	acitve: during random access procedure(from msg1 to msg3 finish, including HARQ), inactive: failure or sucess, wait until next arrival time.
+	//int is_active;
+	
+	///	statistic
+	float access_delay;
+	
+	
+	
+	
+	
 }ue_t;
 
 typedef struct msg3_s{
@@ -39,20 +66,31 @@ typedef struct msg3_s{
 
 typedef struct preamble_s{
 	int num_selected;
-	ue_t *rar_ue;
+	ue_t *ue_list;
 }preamble_t;
+
+typedef struct rar_s{
+	int num_selected;
+	ue_t *ue_list;
+}rar_t;
 
 typedef struct ext_ra_inst_s{
     
     int total_ras;
     int number_of_preamble;
     int num_ue;
-    float mean_interarrival;
+    
+	float mean_interarrival;
+    float mean_rar_latency;
+    float mean_msg3_latency;
+    float mean_msg3_retransmit_latency;
+    
     float ra_period;
     int rar_type;
     ue_t *ue_list;
     int max_retransmit;
     preamble_t *preamble_table;
+    //rar_t *rar_table;
     int back_off_window_size;
     int ras;
     int failed;
