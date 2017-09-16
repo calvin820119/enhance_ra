@@ -23,7 +23,7 @@ float exponetial(float mean){
 }
 
 int algo_msg3_tx(int ta, int orig_ta){
-	return 1;
+	return (ta==orig_ta);
 }
 
 //	11 bits
@@ -56,7 +56,24 @@ void ue_backoff_process(ext_ra_inst_t *inst){
     }
 }
 
-void msg3_procedure(){
+void msg3_procedure(ue_t *ue){
+	
+	if(-1 == inst->ue_list[ue_id].ta_reg || 1 == algo_msg3_tx(inst->ue_list[ue_id].ta, inst->ue_list[ue_id].ta_reg)){
+		inst->ue_list[ue_id].state = msg3;
+		if((ue_s *)0 == ue->prev && (ue_s *)0 == ue->next){
+			//	success
+		}else{
+			//	collision happen
+		}
+		inst->ue_list[ue_id].arrival_time = sim_time + exponetial(inst->mean_msg3_retransmit_latency);
+	}else{
+		//	TODO modify the order by next pointer. because this UE give up from the contention list.
+		
+		//...
+		
+		inst->ue_list[ue_id].state = idle;
+		inst->ue_list[ue_id].arrival_time = sim_time + exponetial(inst->mean_interarrival);
+	}
 }
 
 void msg2_procedure_ue(){
@@ -105,7 +122,7 @@ void ue_arrival(ext_ra_inst_t *inst, int ue_id){
     ue_selected_preamble(inst, ue_id);
 }
 
-void ue_decode_rar(ext_ra_inst_t *inst, int ue_id){
+void ue_decode_rar(ue_t *ue){
 	
 	if(1 == algo_msg3_tx(inst->ue_list[ue_id].ta, 0)){
 		inst->ue_list[ue_id].state = msg3;
@@ -118,7 +135,6 @@ void ue_decode_rar(ext_ra_inst_t *inst, int ue_id){
 		inst->ue_list[ue_id].state = idle;
 		inst->ue_list[ue_id].arrival_time = sim_time + exponetial(inst->mean_interarrival);
 	}
-	
 }
 
 void ue_selected_preamble(ext_ra_inst_t *inst, int ue_id){
@@ -139,15 +155,14 @@ void ue_selected_preamble(ext_ra_inst_t *inst, int ue_id){
     
     if( (ue_t *)0 == inst->preamble_table[preamble_index].ue_list ){
         inst->preamble_table[preamble_index].ue_list = &inst->ue_list[ue_id];
-		inst->ue_list[ue_id].next = (ue_t *)0;
+	inst->ue_list[ue_id].next = (ue_t *)0;
+	inst->ue_list[ue_id].prev = (ue_t *)0;
     }else{
         iterator2 = inst->preamble_table[preamble_index].ue_list;
-        
-        while( (ue_t *)0 != iterator2->next ){
-            iterator2 = iterator2->next;
-        }
-        iterator2->next = &inst->ue_list[ue_id];
-        inst->ue_list[ue_id].next = (ue_t *)0;
+        inst->preamble_table[preamble_index].ue_list = &inst->ue_list[ue_id];
+        iterator2->prev = &inst->ue_list[ue_id];
+        inst->ue_list[ue_id].next = iterator2;
+	inst->ue_list[ue_id].prev = (ue_t *)0;
     }
 }
 
@@ -172,6 +187,7 @@ void initialize_simulation(ext_ra_inst_t *inst){
 		inst->ue_list[i].location_x = rand_radius * cos( rand_angle );
 		inst->ue_list[i].location_y = rand_radius * sin( rand_angle );
 		inst->ue_list[i].ta = -1;
+		inst->ue_list[i].ta_reg = -1;
 		inst->ue_list[i].distance = rand_radius;
     }
     

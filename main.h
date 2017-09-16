@@ -41,6 +41,7 @@ typedef struct ue_s{
 	/// GLOBAL
 	//	used for msg1, msg3
 	struct ue_s *next;
+	struct ue_s *prev;
 	//	NB-IoT UE fixed location
 	float location_x;
 	float location_y;
