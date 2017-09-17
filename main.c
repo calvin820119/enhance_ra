@@ -6,6 +6,8 @@
 
 #define file_input
 
+#define print_output
+
 const double pi = 3.14159265;
 
 static float sim_time;
@@ -29,18 +31,17 @@ int algo_msg3_tx(int ta, int orig_ta){
 //	11 bits
 int msg2_find_ta(ue_t *head){
 	ue_t *p = head;
-	float max_distance, distance;
-	max_distance = 0.0f;
+	float min_distance;
+	min_distance = p->distance;
 	while((ue_t *)0 != p){
-		distance = p->distance;//(float)sqrt(pow(p->location_x, 2) + pow(p->location_y, 2));
-		if(max_distance < distance){
-			max_distance = distance;
+		if(min_distance > p->distance){
+			min_distance = p->distance;
 		}
 		p = p->next;
 	}
 	
 	//	70km per bit
-	return (int)(max_distance/70.0);
+	return (int)(min_distance/70.0);
 }
 
 void ue_backoff_process(ext_ra_inst_t *inst){
@@ -56,23 +57,36 @@ void ue_backoff_process(ext_ra_inst_t *inst){
     }
 }
 
-void msg3_procedure(ue_t *ue){
+void msg3_procedure(ext_ra_inst_t *inst, ue_t *ue){
 	
-	if(-1 == inst->ue_list[ue_id].ta_reg || 1 == algo_msg3_tx(inst->ue_list[ue_id].ta, inst->ue_list[ue_id].ta_reg)){
-		inst->ue_list[ue_id].state = msg3;
-		if((ue_s *)0 == ue->prev && (ue_s *)0 == ue->next){
+	if(-1 == ue->ta_reg || 1 == algo_msg3_tx(ue->ta, ue->ta_reg) || 1){
+		if((ue_t *)0 == ue->prev && (ue_t *)0 == ue->next){
 			//	success
-		}else{
+			inst->success++;
+			
+			if(ue->ta_reg == -1){
+				ue->ta_reg = ue->ta;	//	this TA is the parameter for this UE
+			}
+			
+			ue->msg3_harq_round = 0;
+			ue->state = idle;
+			ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
+		}else if(ue->msg3_harq_round >= inst->msg3_harq_round_max){
 			//	collision happen
+			ue->msg3_harq_round++;
+			ue->arrival_time = sim_time + exponetial(inst->mean_msg3_retransmit_latency);
+		}else{
+			ue->msg3_harq_round = 0;
+			ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
 		}
-		inst->ue_list[ue_id].arrival_time = sim_time + exponetial(inst->mean_msg3_retransmit_latency);
 	}else{
 		//	TODO modify the order by next pointer. because this UE give up from the contention list.
 		
 		//...
 		
-		inst->ue_list[ue_id].state = idle;
-		inst->ue_list[ue_id].arrival_time = sim_time + exponetial(inst->mean_interarrival);
+		ue->msg3_harq_round = 0;
+		ue->state = idle;
+		ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
 	}
 }
 
@@ -114,55 +128,55 @@ void msg2_procedure_eNB(ext_ra_inst_t *inst){
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
 
-void ue_arrival(ext_ra_inst_t *inst, int ue_id){
+void ue_arrival(ext_ra_inst_t *inst, ue_t *ue){
     //int ue_id = next_event_type - num_normal_event;
     inst->attempt+=1;
-    inst->ue_list[ue_id].access_delay = sim_time;
-    inst->ue_list[ue_id].state = msg1;
-    ue_selected_preamble(inst, ue_id);
+    ue->access_delay = sim_time;
+    ue->state = msg2;
+    ue_selected_preamble(inst, ue);
+    ue->arrival_time = sim_time + exponetial(inst->mean_rar_latency);
+    //printf("%f rx rar\n", ue->arrival_time);
 }
 
-void ue_decode_rar(ue_t *ue){
+void ue_decode_rar(ext_ra_inst_t *inst, ue_t *ue){
 	
-	if(1 == algo_msg3_tx(inst->ue_list[ue_id].ta, 0)){
-		inst->ue_list[ue_id].state = msg3;
-		inst->ue_list[ue_id].arrival_time = sim_time + exponetial(inst->mean_msg3_latency);
+	if(-1 == ue->ta_reg || 1 == algo_msg3_tx(ue->ta, ue->ta_reg) || 1){
+		ue->state = msg3;
+		ue->arrival_time = sim_time + exponetial(inst->mean_msg3_latency);
 	}else{
 		//	TODO modify the order by next pointer. because this UE give up from the contention list.
 		
 		//...
 		
-		inst->ue_list[ue_id].state = idle;
-		inst->ue_list[ue_id].arrival_time = sim_time + exponetial(inst->mean_interarrival);
+		ue->state = idle;
+		ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
 	}
 }
 
-void ue_selected_preamble(ext_ra_inst_t *inst, int ue_id){
-    ue_t *iterator2;
+void ue_selected_preamble(ext_ra_inst_t *inst, ue_t *ue){
+    ue_t *iterator;
     int preamble_index;
     //int rar_index;
     
     inst->trial+=1;
     
     preamble_index = (int)(inst->number_of_preamble*lcgrand(2));
-    //rar_index = (int)(inst->rar_type*lcgrand(3));
     
-    
-    inst->ue_list[ue_id].preamble_index = preamble_index;
+    ue->preamble_index = preamble_index;
     
     //  choose RAR
     inst->preamble_table[preamble_index].num_selected += 1;
     
     if( (ue_t *)0 == inst->preamble_table[preamble_index].ue_list ){
-        inst->preamble_table[preamble_index].ue_list = &inst->ue_list[ue_id];
-	inst->ue_list[ue_id].next = (ue_t *)0;
-	inst->ue_list[ue_id].prev = (ue_t *)0;
+        inst->preamble_table[preamble_index].ue_list = ue;
+		ue->next = (ue_t *)0;
+		ue->prev = (ue_t *)0;
     }else{
-        iterator2 = inst->preamble_table[preamble_index].ue_list;
-        inst->preamble_table[preamble_index].ue_list = &inst->ue_list[ue_id];
-        iterator2->prev = &inst->ue_list[ue_id];
-        inst->ue_list[ue_id].next = iterator2;
-	inst->ue_list[ue_id].prev = (ue_t *)0;
+        iterator = inst->preamble_table[preamble_index].ue_list;
+        inst->preamble_table[preamble_index].ue_list = ue;
+        iterator->prev = ue;
+        ue->next = iterator;
+		ue->prev = (ue_t *)0;
     }
 }
 
@@ -233,6 +247,7 @@ void initialize_structure(ext_ra_inst_t *inst){
 	inst->mean_rar_latency = 1.0f;	//	from NPRACH period to the time received rar(msg2)
 	inst->mean_msg3_latency = 0.5f;	//	from the time received rar(msg2) to the time transimted msg3
 	inst->mean_msg3_retransmit_latency = 1.0f;	//	from the time transimted msg3 to the time transimted msg3 again
+	inst->msg3_harq_round_max = 5;
 	
 	inst->ue_list = (ue_t *)0;
 	inst->preamble_table = (preamble_t *)0;
@@ -246,12 +261,12 @@ void timing(ext_ra_inst_t *inst){
     next_event_type = event_ra_period;
     
     for(i=0;i<inst->num_ue;++i){
-        if( idle == inst->ue_list[i].state){
+        //if( idle == inst->ue_list[i].state){
             if(inst->ue_list[i].arrival_time < min_time_next_event){
                 min_time_next_event = inst->ue_list[i].arrival_time;
                 next_event_type = num_normal_event+i;
             }
-        }
+        //}
         
         //  TODO priority queue, using heap, implemented by array
         //	O(1), only need to check the root of heap 
@@ -365,9 +380,10 @@ int main(int argc, char *argv[]){
 	do{
 		
 	    timing(&ext_ra_inst);
-	    printf("%f %d\n", sim_time, next_event_type);
+	    printf("%f ", sim_time);
 	    switch(next_event_type){
 	        case event_ra_period:
+	        		printf("ra\n");
 	                msg2_procedure_eNB(&ext_ra_inst);
 	                ue_backoff_process(&ext_ra_inst);
 	            break;
@@ -379,25 +395,22 @@ int main(int argc, char *argv[]){
 		    break;
 	        default:{
 	        	ue_id = next_event_type - num_normal_event;
+	        	printf("ue:%d state:%d\n", ue_id, ext_ra_inst.ue_list[ue_id].state);
 	        	switch(ext_ra_inst.ue_list[ue_id].state){
 	        		case idle:
-	        			ue_arrival(&ext_ra_inst, ue_id);
+	        			ue_arrival(&ext_ra_inst, &ext_ra_inst.ue_list[ue_id]);
 	        			break;
 	        		case msg2:
-	        			ue_decode_rar(&ext_ra_inst, ue_id);
+	        			ue_decode_rar(&ext_ra_inst, &ext_ra_inst.ue_list[ue_id]);
 	        			break;
-	        	//	case msg3:
-	        	//		break;
+	        		case msg3:
+	        			msg3_procedure(&ext_ra_inst, &ext_ra_inst.ue_list[ue_id]);
+	        			break;
 	        		case msg4:
 	        			break;
 				}
-	        	
-	        	
-				break;
 			}
-	        	
-	            
-	            break;
+	        break;
 	    }
 	
 	}while(event_stop != next_event_type);

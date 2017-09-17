@@ -31,6 +31,7 @@ typedef struct ue_s{
 	/// MSG2
 	//	timing advance value
 	int ta;
+	int ta_reg;
 	
 	/// MSG3
 	//	msg3 HARQ round times
@@ -52,10 +53,6 @@ typedef struct ue_s{
 	
 	///	statistic
 	float access_delay;
-	
-	
-	
-	
 	
 }ue_t;
 
@@ -102,7 +99,7 @@ typedef struct ext_ra_inst_s{
     int retransmit;
     int once_attempt_collide;
     int trial;
-    
+    int msg3_harq_round_max;
 	float total_access_delay;
 	int rar_success;
 	int rar_failed;
@@ -114,8 +111,8 @@ typedef struct ext_ra_inst_s{
 float exponetial(float mean);
 void ue_backoff_process(ext_ra_inst_t *inst);
 void ra_procedure(ext_ra_inst_t *inst);
-void ue_selected_preamble(ext_ra_inst_t *inst, int ue_id);
-void ue_arrival(ext_ra_inst_t *inst, int next_event_type);
+void ue_selected_preamble(ext_ra_inst_t *inst, ue_t *ue);
+void ue_arrival(ext_ra_inst_t *inst, ue_t *ue);
 void initialize(ext_ra_inst_t *inst);
 void initialize_ue_preamble(ext_ra_inst_t *inst);
 void timing(ext_ra_inst_t *inst); 
