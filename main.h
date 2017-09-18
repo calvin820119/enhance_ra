@@ -84,7 +84,6 @@ typedef struct ext_ra_inst_s{
     float mean_msg3_retransmit_latency;
     
     float ra_period;
-    int rar_type;
     ue_t *ue_list;
     int max_retransmit;
     preamble_t *preamble_table;

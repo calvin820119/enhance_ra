@@ -49,7 +49,7 @@ void ue_backoff_process(ext_ra_inst_t *inst){
     for(i=0;i<inst->num_ue;++i){
         if(inst->ue_list[i].state == msg1){
             if(inst->ue_list[i].backoff_counter == 0){
-                ue_selected_preamble(inst, i);
+                ue_selected_preamble(inst, &inst->ue_list[i]);
             }else{
                 inst->ue_list[i].backoff_counter -= 1;
             }
@@ -59,45 +59,49 @@ void ue_backoff_process(ext_ra_inst_t *inst){
 
 void msg3_procedure(ext_ra_inst_t *inst, ue_t *ue){
 	
-	if(-1 == ue->ta_reg || 1 == algo_msg3_tx(ue->ta, ue->ta_reg) || 1){
+	if(-1 == ue->ta_reg || 1 == algo_msg3_tx(ue->ta, ue->ta_reg)){
 		if((ue_t *)0 == ue->prev && (ue_t *)0 == ue->next){
 			//	success
 			inst->success++;
-			
+			printf("\tue success\n");
 			if(ue->ta_reg == -1){
 				ue->ta_reg = ue->ta;	//	this TA is the parameter for this UE
+				printf("\tupdate ta\n");
 			}
 			
 			ue->msg3_harq_round = 0;
 			ue->state = idle;
 			ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
-		}else if(ue->msg3_harq_round >= inst->msg3_harq_round_max){
+			ue->next = (ue_t *)0;
+			ue->prev = (ue_t *)0;
+		}else if(ue->msg3_harq_round < inst->msg3_harq_round_max){
 			//	collision happen
 			ue->msg3_harq_round++;
 			ue->arrival_time = sim_time + exponetial(inst->mean_msg3_retransmit_latency);
 		}else{
+			ue->next = (ue_t *)0;
+			ue->prev = (ue_t *)0;
+			ue->state = idle;
 			ue->msg3_harq_round = 0;
 			ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
 		}
 	}else{
+		printf("\tue give up\n");
 		//	TODO modify the order by next pointer. because this UE give up from the contention list.
 		
 		//...
-		
+		ue->next = (ue_t *)0;
+		ue->prev = (ue_t *)0;
 		ue->msg3_harq_round = 0;
 		ue->state = idle;
 		ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
 	}
 }
 
-void msg2_procedure_ue(){
-}
-
 void msg2_procedure_eNB(ext_ra_inst_t *inst){
-	int i, ta;
+	int i, ta, num=0;
 	ue_t *iterator, *iterator1;
 	inst->ras++;
-	
 	for(i=0; i<inst->number_of_preamble; ++i){
 		if(0 != inst->preamble_table[i].num_selected){
 			iterator = inst->preamble_table[i].ue_list;
@@ -105,7 +109,7 @@ void msg2_procedure_eNB(ext_ra_inst_t *inst){
 			ta = msg2_find_ta(iterator);
 			
 			while((ue_t *)0 != iterator){
-				
+				num++;
 				iterator->state = msg2;
 				iterator->arrival_time = sim_time + exponetial(inst->mean_rar_latency);
 				iterator->ta = ta;
@@ -114,17 +118,15 @@ void msg2_procedure_eNB(ext_ra_inst_t *inst){
 			
 		}		
 		
-		
 		//	clear for next NPRACH period
 		inst->preamble_table[i].ue_list = (ue_t *)0;
 		inst->preamble_table[i].num_selected = 0;
 	}
-	
 	/*for(i=0;i<inst->num_ue;++i){
 		if(inst->ue_list[i].state == msg2)
         	printf("UE%03d distance:%f preamble:%d rx_rar:%f ta:%d\n", i, inst->ue_list[i].distance, inst->ue_list[i].preamble_index, inst->ue_list[i].arrival_time, inst->ue_list[i].ta);
 	}*/
-	
+	printf("[%f] %d UEs attemp\n", sim_time, num);
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
 
@@ -140,14 +142,16 @@ void ue_arrival(ext_ra_inst_t *inst, ue_t *ue){
 
 void ue_decode_rar(ext_ra_inst_t *inst, ue_t *ue){
 	
-	if(-1 == ue->ta_reg || 1 == algo_msg3_tx(ue->ta, ue->ta_reg) || 1){
+	if(-1 == ue->ta_reg || 1 == algo_msg3_tx(ue->ta, ue->ta_reg)){
 		ue->state = msg3;
 		ue->arrival_time = sim_time + exponetial(inst->mean_msg3_latency);
 	}else{
+		printf("\tue give up @ rx_msg2\n");
 		//	TODO modify the order by next pointer. because this UE give up from the contention list.
 		
 		//...
-		
+		ue->next = (ue_t *)0;
+		ue->prev = (ue_t *)0;
 		ue->state = idle;
 		ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
 	}
@@ -244,9 +248,9 @@ void initialize_structure(ext_ra_inst_t *inst){
     inst->back_off_window_size = 0;
     inst->mean_interarrival = 0.0f;
 	//	haven't set by parameter file. TODO
-	inst->mean_rar_latency = 1.0f;	//	from NPRACH period to the time received rar(msg2)
-	inst->mean_msg3_latency = 0.5f;	//	from the time received rar(msg2) to the time transimted msg3
-	inst->mean_msg3_retransmit_latency = 1.0f;	//	from the time transimted msg3 to the time transimted msg3 again
+	inst->mean_rar_latency = 0.01f;	//	from NPRACH period to the time received rar(msg2)
+	inst->mean_msg3_latency = 0.005f;	//	from the time received rar(msg2) to the time transimted msg3
+	inst->mean_msg3_retransmit_latency = 0.01f;	//	from the time transimted msg3 to the time transimted msg3 again
 	inst->msg3_harq_round_max = 5;
 	
 	inst->ue_list = (ue_t *)0;
@@ -335,7 +339,7 @@ int main(int argc, char *argv[]){
 		printf(".in file access error!\n");
 		return 1;
 	}
-	fscanf(fin, "%d %d %d %f %d %d %f %d", &ext_ra_inst.total_ras, &ext_ra_inst.number_of_preamble, &ext_ra_inst.num_ue, &ext_ra_inst.ra_period, &ext_ra_inst.max_retransmit, &ext_ra_inst.back_off_window_size, &ext_ra_inst.mean_interarrival, &ext_ra_inst.rar_type);
+	fscanf(fin, "%d %d %d %f %d %d %f", &ext_ra_inst.total_ras, &ext_ra_inst.number_of_preamble, &ext_ra_inst.num_ue, &ext_ra_inst.ra_period, &ext_ra_inst.max_retransmit, &ext_ra_inst.back_off_window_size, &ext_ra_inst.mean_interarrival);
 #else
     if(9 != argc){
 		printf("Usage: ./[exe] [total ras] [# of preamble] [# of ue] [max trans] [backoff window] [mean interarrival] [# of rar]\n");
@@ -348,11 +352,10 @@ int main(int argc, char *argv[]){
         sscanf(*(argv+5), "%d", &ext_ra_inst.max_retransmit);
         sscanf(*(argv+6), "%d", &ext_ra_inst.back_off_window_size);
         sscanf(*(argv+7), "%f", &ext_ra_inst.mean_interarrival);
-        sscanf(*(argv+8), "%d", &ext_ra_inst.rar_type);
     }
 #endif
 
-	sprintf(str_fout_name, "out/rar%d.out", ext_ra_inst.rar_type);
+	sprintf(str_fout_name, "out/enhance_ra.out");
 
 	if((FILE *)0 == (fout = fopen(str_fout_name, "ab+"))){
 		printf(".out file access error!\n");
@@ -364,7 +367,6 @@ int main(int argc, char *argv[]){
     printf("-------------------------------------------------\n");
     printf("Number of preamble :         %d\n", ext_ra_inst.number_of_preamble);
     printf("Number of UE :               %d\n", ext_ra_inst.num_ue);
-    printf("Number of RAR extended :     %d\n", ext_ra_inst.rar_type);
     printf("RAs period :                 %f sec\n", ext_ra_inst.ra_period);
     printf("Maximum retransmit times :   %d\n", ext_ra_inst.max_retransmit);
     printf("Uniform backoff window :     %d\n", ext_ra_inst.back_off_window_size);
@@ -383,9 +385,9 @@ int main(int argc, char *argv[]){
 	    printf("%f ", sim_time);
 	    switch(next_event_type){
 	        case event_ra_period:
-	        		printf("ra\n");
+	       		printf("ra\n");
 	                msg2_procedure_eNB(&ext_ra_inst);
-	                ue_backoff_process(&ext_ra_inst);
+	        //        ue_backoff_process(&ext_ra_inst);
 	            break;
 	        case event_stop:
 #ifdef print_output
