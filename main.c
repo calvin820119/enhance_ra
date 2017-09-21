@@ -38,7 +38,6 @@ int msg2_find_ta(ue_t *head){
 			min_distance = p->distance;
 		}
 		p = p->next;
-		//printf("*");
 	}
 	
 	//	70km per bit
@@ -51,7 +50,7 @@ void ue_backoff_process(ext_ra_inst_t *inst){
     for(i=0;i<inst->num_ue;++i){
         if(inst->ue_list[i].state == msg1){
             if(inst->ue_list[i].backoff_counter == 0){
-                ue_selected_preamble(inst, i);
+                ue_selected_preamble(inst, &inst->ue_list[i]);
             }else{
                 inst->ue_list[i].backoff_counter -= 1;
             }
@@ -89,7 +88,7 @@ void msg3_procedure(ext_ra_inst_t *inst, ue_t *ue){
 		if((ue_t *)0 != ue->next){
 			ue->next->prev = ue->prev;
 		}
-		
+
 		ue->next = (ue_t *)0;
 		ue->prev = (ue_t *)0;
 		ue->msg3_harq_round = 0;
@@ -98,11 +97,8 @@ void msg3_procedure(ext_ra_inst_t *inst, ue_t *ue){
 	}
 }
 
-void msg2_procedure_ue(){
-}
-
 void msg2_procedure_eNB(ext_ra_inst_t *inst){
-	int i, ta;
+	int i, ta, num=0;
 	ue_t *iterator, *iterator1;
 	inst->ras++;
 	for(i=0; i<inst->number_of_preamble; ++i){
@@ -111,12 +107,12 @@ void msg2_procedure_eNB(ext_ra_inst_t *inst){
 			
 			iterator = inst->preamble_table[i].ue_list;
 			
-			printf("%f RA preamble:%d num:%d ue0:%p", sim_time, i, inst->preamble_table[i].num_selected, iterator);
-			if(iterator->next)	printf(" ue1:%p\n", iterator->next); else printf("\n");
+		//	printf("%f RA preamble:%d num:%d ue0:%p", sim_time, i, inst->preamble_table[i].num_selected, iterator);
+		//	if(iterator->next)	printf(" ue1:%p\n", iterator->next); else printf("\n");
 			ta = msg2_find_ta(iterator);
 			
 			while((ue_t *)0 != iterator){
-				
+				num++;
 				iterator->state = msg2;
 				iterator->arrival_time = sim_time + exponetial(inst->mean_rar_latency);
 				iterator->ta = ta;
@@ -128,7 +124,7 @@ void msg2_procedure_eNB(ext_ra_inst_t *inst){
 		inst->preamble_table[i].ue_list = (ue_t *)0;
 		inst->preamble_table[i].num_selected = 0;
 	}
-	
+
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
 
@@ -148,6 +144,7 @@ void ue_decode_rar(ext_ra_inst_t *inst, ue_t *ue){
 		ue->state = msg3;
 		ue->arrival_time = sim_time + exponetial(inst->mean_msg3_latency);
 	}else{
+
 		//	give up
 		if((ue_t *)0 != ue->prev){
 			ue->prev->next = ue->next;
@@ -155,6 +152,7 @@ void ue_decode_rar(ext_ra_inst_t *inst, ue_t *ue){
 		if((ue_t *)0 != ue->next){
 			ue->next->prev = ue->prev;
 		}
+
 		ue->next = (ue_t *)0;
 		ue->prev = (ue_t *)0;
 		ue->state = idle;
@@ -187,7 +185,7 @@ void ue_selected_preamble(ext_ra_inst_t *inst, ue_t *ue){
         ue->next = iterator;
 		ue->prev = (ue_t *)0;
     }
-    printf("%f ue:%p preamble:%d\n", sim_time, ue, preamble_index);
+    //printf("%f ue:%p preamble:%d\n", sim_time, ue, preamble_index);
 }
 
 void initialize_simulation(ext_ra_inst_t *inst){
@@ -358,7 +356,6 @@ int main(int argc, char *argv[]){
         sscanf(*(argv+5), "%d", &ext_ra_inst.max_retransmit);
         sscanf(*(argv+6), "%d", &ext_ra_inst.back_off_window_size);
         sscanf(*(argv+7), "%f", &ext_ra_inst.mean_interarrival);
-        sscanf(*(argv+8), "%d", &ext_ra_inst.rar_type);
     }
 #endif
 
@@ -392,12 +389,11 @@ float mean_interarrival;
 	do{
 		
 	    timing(&ext_ra_inst);
-	//    printf("%f ", sim_time);
 	    switch(next_event_type){
 	        case event_ra_period:
-	//        		printf("ra\n");
+
 	                msg2_procedure_eNB(&ext_ra_inst);
-	                ue_backoff_process(&ext_ra_inst);
+	        //        ue_backoff_process(&ext_ra_inst);
 	            break;
 	        case event_stop:
 #ifdef print_output
@@ -407,7 +403,6 @@ float mean_interarrival;
 		    break;
 	        default:{
 	        	ue_id = next_event_type - num_normal_event;
-	    //    	printf("ue:%d state:%d\n", ue_id, ext_ra_inst.ue_list[ue_id].state);
 	        	switch(ext_ra_inst.ue_list[ue_id].state){
 	        		case idle:
 	        			ue_arrival(&ext_ra_inst, &ext_ra_inst.ue_list[ue_id]);
