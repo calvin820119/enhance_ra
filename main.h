@@ -84,11 +84,9 @@ typedef struct ext_ra_inst_s{
     float mean_msg3_retransmit_latency;
     
     float ra_period;
-    int rar_type;
     ue_t *ue_list;
     int max_retransmit;
     preamble_t *preamble_table;
-    //rar_t *rar_table;
     int back_off_window_size;
     int ras;
     int failed;
@@ -108,7 +106,7 @@ typedef struct ext_ra_inst_s{
 }ext_ra_inst_t;
 
 
-float exponetial(float mean);
+double exponetial(double mean);
 void ue_backoff_process(ext_ra_inst_t *inst);
 void ra_procedure(ext_ra_inst_t *inst);
 void ue_selected_preamble(ext_ra_inst_t *inst, ue_t *ue);
