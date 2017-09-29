@@ -9,11 +9,11 @@ typedef enum events_e{
 }events_t;
 
 typedef enum ue_state_e{
-	idle=0,
-	msg1,
-	msg2,
-	msg3,
-	msg4
+	idle=0,	//	before select preamble
+	state2,	//	after NPRACH, before receive DCI
+	state3,	//	(retransmission)after receive DCI, before receive DCI
+	state1,	//	after select preamble, before NPRACH
+	backoff	//	during backoff counting
 }ue_state_t;
 
 typedef struct ue_s{
@@ -35,8 +35,10 @@ typedef struct ue_s{
 	
 	/// MSG3
 	//	msg3 HARQ round times
+	int eNB_process_msg3;
 	int msg3_harq_round;
-	
+	double msg3_grant;
+	int msg3_ack;
 	/// MSG4
 	
 	/// GLOBAL
@@ -72,7 +74,7 @@ typedef struct rar_s{
 	ue_t *ue_list;
 }rar_t;
 
-typedef struct ext_ra_inst_s{
+typedef struct simulation_s{
     
     int total_ras;
     int number_of_preamble;
@@ -103,17 +105,17 @@ typedef struct ext_ra_inst_s{
 	int rar_failed;
 	int rar_waste;
 	float eNB_radius;
-}ext_ra_inst_t;
+}simulation_t;
 
 
-double exponetial(double mean);
-void ue_backoff_process(ext_ra_inst_t *inst);
-void ra_procedure(ext_ra_inst_t *inst);
-void ue_selected_preamble(ext_ra_inst_t *inst, ue_t *ue);
-void ue_arrival(ext_ra_inst_t *inst, ue_t *ue);
-void initialize(ext_ra_inst_t *inst);
-void initialize_ue_preamble(ext_ra_inst_t *inst);
-void timing(ext_ra_inst_t *inst); 
-void report(ext_ra_inst_t *inst);
+float exponetial(float mean);
+void ue_backoff_process(simulation_t *inst);
+void ra_procedure(simulation_t *inst);
+void ue_selected_preamble(simulation_t *inst, ue_t *ue);
+void ue_arrival(simulation_t *inst, ue_t *ue);
+void initialize(simulation_t *inst);
+void initialize_ue_preamble(simulation_t *inst);
+void timing(simulation_t *inst); 
+void report(simulation_t *inst);
 
 #endif
