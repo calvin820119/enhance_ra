@@ -31,7 +31,10 @@ typedef struct ue_s{
 	/// MSG2
 	//	timing advance value
 	int ta;
-	int ta_reg;
+	float ta_mean;	//	sample mean
+	int ta_count;	//	sample numbers
+	int ta_min;		//	sample maximum
+	int ta_max;		//	sample minimum
 	
 	/// MSG3
 	//	msg3 HARQ round times
