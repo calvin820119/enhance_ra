@@ -42,6 +42,8 @@ typedef struct ue_s{
 	int msg3_harq_round;
 	double msg3_grant;
 	int msg3_ack;
+	int hit;
+	
 	/// MSG4
 	
 	/// GLOBAL
@@ -79,35 +81,37 @@ typedef struct rar_s{
 
 typedef struct simulation_s{
     
-    int total_ras;
-    int number_of_preamble;
-    int num_ue;
+    int total_ras;//
+    int number_of_preamble;//
+    int num_ue;//
     
-	float mean_interarrival;
-    float mean_rar_latency;
-    float mean_msg3_latency;
-    float mean_msg3_retransmit_latency;
+	float mean_interarrival;	//
+    float mean_rar_latency;	//
+    float mean_msg3_latency;	//
+    float mean_msg3_retransmit_latency;	//
     
-    float ra_period;
-    ue_t *ue_list;
-    int max_retransmit;
-    preamble_t *preamble_table;
-    int back_off_window_size;
-    int ras;
-    int failed;
-    int attempt;
-    int success;
-    int collide;
-    int once_attempt_success;
-    int retransmit;
-    int once_attempt_collide;
-    int trial;
-    int msg3_harq_round_max;
-	float total_access_delay;
-	int rar_success;
-	int rar_failed;
-	int rar_waste;
-	float eNB_radius;
+    float ra_period;//
+    ue_t *ue_list;	//
+    int max_retransmit;	//
+    preamble_t *preamble_table;	//
+    int back_off_window_size;	//
+    int ras;//
+    int failed;//
+    int attempt;//
+    int success;//
+    int collide;//
+    int retransmit;//
+    int trial;//
+    int msg3_harq_round_max;	//
+	float total_access_delay;//
+	float eNB_radius;	//
+	//int num_rar_give_up;
+	//int *num_msg3_give_up;
+	float normal_std;
+	int num_hit;		//
+	int num_hit_other;	//
+	int num_error_hit;	//
+	
 }simulation_t;
 
 

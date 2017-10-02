@@ -4,7 +4,12 @@
 #include "main.h"
 #include "lcgrand.h"
 
-#define file_input
+//#define NORMAL_STD 9
+
+//#define file_input
+
+#define print_output
+//#undef print_output
 
 #define ALWAYS_TX_MSG3
 #undef ALWAYS_TX_MSG3
@@ -12,7 +17,7 @@
 #define TA_NORMAL_DISTRIBUTION
 //#undef TA_NORMAL_DISTRIBUTION
 
-#define print_output
+
 #define MAX(a, b)	((a)>(b))?(a):(b)
 #define MIN(a, b)	((a)<(b))?(a):(b)
 
@@ -79,28 +84,35 @@ int algo_msg3_tx(int ta, float ta_mean, int ta_max, int ta_min, int harq_round){
 }
 
 //	11 bits in rar
-int msg2_find_ta(ue_t *head){
-	ue_t *p = head;
+int msg2_find_ta(simulation_t *inst, ue_t *head){
+	ue_t *p = head, *min_ue;
 	float min_distance;
+	int ret;
 	float ta;
 	min_distance = p->distance;
+	min_ue = p;
 	while((ue_t *)0 != p){
 		if(min_distance > p->distance){
 			min_distance = p->distance;
+			min_ue = p;
 		}
 		p = p->next;
 	}
+	min_ue->hit = 1;
 	
 	//	156m per bit
 	ta = (int)(min_distance/156.0);	//	156m calculate by Ts x speed_of_light
 	
+	
+	
+	
 #ifdef TA_NORMAL_DISTRIBUTION
-	return MAX((int)normal(ta, 3), 0);
+	ret = MAX((int)normal(ta, inst->normal_std), 0);
 #else
-	return (int)ta;
+	ret = (int)ta;
 #endif
-	
-	
+	//printf("%d %d", ret, (int)(min_ue->distance/156.0));	getchar();
+	return ret;
 }
 
 void ue_backoff_process(simulation_t *inst){
@@ -158,6 +170,13 @@ void process_dci(simulation_t *inst, ue_t *ue){
 	if(ue->msg3_ack == 1){
 		
 		inst->success++;
+		inst->total_access_delay += sim_time - ue->access_delay;
+		if(ue->hit == 1){
+			inst->num_hit++;
+		}else{
+			inst->num_hit_other++;
+		}
+		ue->hit = 0;
 		
 		if(ue->ta_count == 0){
 			ue->ta_mean = ue->ta;
@@ -190,6 +209,12 @@ void process_dci(simulation_t *inst, ue_t *ue){
 			ue->msg3_harq_round++;
 			ue->eNB_process_msg3 = 1;
 		}else{	//	give up
+		//	inst->num_msg3_give_up[ue->msg3_harq_round]++;
+			
+			if(ue->hit == 1 && ue->msg3_harq_round != inst->msg3_harq_round_max){
+				inst->num_error_hit++;
+			}
+			ue->hit = 0;
 			
 			if((ue_t *)0 != ue->prev){
 				ue->prev->next = ue->next;
@@ -200,6 +225,8 @@ void process_dci(simulation_t *inst, ue_t *ue){
 			ue->next = (ue_t *)0;
 			ue->prev = (ue_t *)0;
 			ue->msg3_harq_round = 0;
+			
+			
 			
 			if(ue->retransmit_counter >= inst->max_retransmit){
 				//	failed
@@ -260,7 +287,7 @@ void nprach_period_eNB(simulation_t *inst){
 		
 			iterator = inst->preamble_table[i].ue_list;
 			
-			ta = msg2_find_ta(iterator);
+			ta = msg2_find_ta(inst, iterator);
 			rar_time = inst->mean_rar_latency;
 			msg3_time = inst->mean_msg3_latency;
 			while((ue_t *)0 != iterator){
@@ -295,13 +322,21 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
 	if(0 == ue->ta_count || 1 == algo_msg3_tx(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round)){
 		ue->state = state3;
 		ue->arrival_time = sim_time + ue->msg3_grant;		//	wrong, all ue must be same value(fixed)
-	}else{
-
+	}else{	//	give up at rar stage
+	//	inst->num_rar_give_up++;
+		
+		if(ue->hit == 1){
+			//printf("%d %f\n", ue->ta, ue->ta_mean);	getchar();
+			inst->num_error_hit++;
+		}
+		ue->hit = 0;
+		
 		//	give up(backoff)
 		ue->retransmit_counter += 1;
         //  uniform backoff
         ue->backoff_counter = (int)(inst->back_off_window_size*lcgrand(4));
 		ue->state = backoff;
+		ue->msg3_harq_round = 0;
 		
 		if((ue_t *)0 != ue->prev){
 			ue->prev->next = ue->next;
@@ -348,6 +383,8 @@ void initialize_simulation(simulation_t *inst){
     inst->ue_list = (ue_t *)malloc(inst->num_ue*sizeof(ue_t));
 	inst->preamble_table = (preamble_t *)malloc(inst->number_of_preamble*sizeof(preamble_t));
     inst->eNB_radius = 10000;	//	default 10,000 m, 10km
+    //inst->num_msg3_give_up = (int *)calloc(inst->msg3_harq_round_max, sizeof(int));
+    
     for(i=0;i<inst->num_ue;++i){
         inst->ue_list[i].state = idle;
         inst->ue_list[i].backoff_counter = 0;
@@ -367,11 +404,12 @@ void initialize_simulation(simulation_t *inst){
 		inst->ue_list[i].ta_count = 0;
 		inst->ue_list[i].distance = rand_radius;
 		inst->ue_list[i].eNB_process_msg3 = 0;
+		inst->ue_list[i].hit = 0;
     }
     
     for(i=0;i<inst->number_of_preamble;++i){
-    		inst->preamble_table[i].num_selected = 0;
-    		inst->preamble_table[i].ue_list = (ue_t *)0;
+    	inst->preamble_table[i].num_selected = 0;
+    	inst->preamble_table[i].ue_list = (ue_t *)0;
 	}
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
@@ -393,11 +431,10 @@ void initialize_structure(simulation_t *inst){
     inst->trial=0;
     inst->ras = 0;
     inst->total_access_delay = 0.0f;
-    inst->rar_success = 0;
-	inst->rar_failed = 0;
-	inst->rar_waste = 0;
+ 	//inst->num_rar_give_up = 0;
+    //inst->num_msg3_give_up = 0;
+    //inst->num_msg3_give_up = (int *)0;
     
-    //  extended RA
     inst->total_ras = 0;
     inst->number_of_preamble = 0;
     inst->num_ue = 0;
@@ -413,6 +450,11 @@ void initialize_structure(simulation_t *inst){
 	
 	inst->ue_list = (ue_t *)0;
 	inst->preamble_table = (preamble_t *)0;
+	
+	inst->num_hit = 0;
+	inst->num_error_hit = 0;
+	inst->num_hit_other = 0;
+	inst->normal_std = 0.0f;
 }
 
 void timing(simulation_t *inst){ 
@@ -441,7 +483,7 @@ void timing(simulation_t *inst){
 }
 
 void report(simulation_t *inst){ 
-    int i, rest=0, rar_total=0;
+    int i, rest=0;
     int num_ras = inst->total_ras;
     float avg_num_attempt = (float)inst->attempt/num_ras;
     float avg_num_success = (float)inst->success/num_ras;
@@ -452,36 +494,36 @@ void report(simulation_t *inst){
             ++rest;
         }
     }
-    rar_total = inst->rar_failed + inst->rar_success + inst->rar_waste;
 #ifdef print_output
     printf("total attemp  : %d\n", inst->attempt);  //attemp means try to connect to base station 
     printf("total success : %d\n", inst->success);
     printf("total failed  : %d\n", inst->failed);
     printf("total residual: %d\n", rest);
     printf("\n");
-    printf("total trial   : %d\n", inst->trial);
-    printf("total collide : %d\n", inst->collide);
+    printf("total trial   : %d\n", inst->trial);	//	trial = numbers of ue select preamble
+    printf("total collide : %d\n", inst->collide);	//	collide = collision 
     printf("\n");
     printf("avg. success      : %f\n", avg_num_success);
     printf("avg. prob. success: %f\n", (float)inst->success/inst->trial);
     printf("avg. prob. collide: %f\n", (float)inst->collide/inst->trial);
     printf("\n");
-    printf("avg. access delay : %f\n", inst->total_access_delay/inst->success);
-    printf("rar success rate  : %f\n", (float)inst->rar_success/rar_total);
-    printf("rar failed  rate  : %f\n", (float)inst->rar_failed/rar_total);
-    printf("rar waste   rate  : %f\n", (float)inst->rar_waste/rar_total);
+    printf("avg. access delay : %f sec\n", inst->total_access_delay/inst->success);
+    printf("total correct hit : %d\n", inst->num_hit);
+    printf("total error hit   : %d\n", inst->num_error_hit);
+    printf("total others hit  : %d\n", inst->num_hit_other);
+    printf("correct rate      : %f %%\n", (float)(inst->num_hit*100)/(inst->num_hit+inst->num_error_hit+inst->num_hit_other));
+	//printf("total RAR giveup  : %d\n", inst->num_rar_give_up);
+   // for(i=0; i<inst->msg3_harq_round_max; ++i){
+   // 	printf("total MSG3[%d] giveup : %d\n", i, inst->num_msg3_give_up[i]);
+	//}
+    
     printf("\n");
 #endif
     
-    fprintf(fout, "%f ", avg_num_success);
-    fprintf(fout, "%f ", (float)inst->collide/inst->trial);
-    fprintf(fout, "%f ", inst->total_access_delay/inst->success);
-
-    fprintf(fout, "%f ", (float)inst->rar_success/rar_total);
-    fprintf(fout, "%f ", (float)inst->rar_failed/rar_total);
-    fprintf(fout, "%f ", (float)inst->rar_waste/rar_total);
-    fprintf(fout, "%d\n", inst->rar_waste);
-
+    fprintf(fout, "%f ", avg_num_success);	//	avg. success
+    fprintf(fout, "%f ", (float)inst->collide/inst->trial);	//	avg. prob. collide
+    fprintf(fout, "%f ", inst->total_access_delay/inst->success);	//	avg. access delay
+    fprintf(fout, "%f\n", (float)(inst->num_hit*100)/(inst->num_hit+inst->num_error_hit+inst->num_hit_other));
 }
 
 int main(int argc, char *argv[]){
@@ -495,11 +537,12 @@ int main(int argc, char *argv[]){
 		printf(".in file access error!\n");
 		return 1;
 	}
-	fscanf(fin, "%d %d %d %f %d %d %f %f %f %f %d", &ext_ra_inst.total_ras, &ext_ra_inst.number_of_preamble, &ext_ra_inst.num_ue, &ext_ra_inst.ra_period, &ext_ra_inst.max_retransmit, &ext_ra_inst.back_off_window_size, &ext_ra_inst.mean_interarrival, &ext_ra_inst.mean_rar_latency, &ext_ra_inst.mean_msg3_latency, &ext_ra_inst.mean_msg3_retransmit_latency, &ext_ra_inst.msg3_harq_round_max);
+	fscanf(fin, "%d %d %d %f %d %d %f %f %f %f %d %f", &ext_ra_inst.total_ras, &ext_ra_inst.number_of_preamble, &ext_ra_inst.num_ue, &ext_ra_inst.ra_period, &ext_ra_inst.max_retransmit, &ext_ra_inst.back_off_window_size, &ext_ra_inst.mean_interarrival, &ext_ra_inst.mean_rar_latency, &ext_ra_inst.mean_msg3_latency, &ext_ra_inst.mean_msg3_retransmit_latency, &ext_ra_inst.msg3_harq_round_max, &ext_ra_inst.normal_std);
 
 #else
-    if(9 != argc){
-		printf("Usage: ./[exe] [total ras] [# of preamble] [# of ue] [max trans] [backoff window] [mean interarrival] [# of rar]\n");
+    if(13 != argc){
+		printf("error input\n");
+		//printf("Usage: ./[exe] [total ras] [# of preamble] [# of ue] [max trans] [backoff window] [mean interarrival] [# of rar]\n");
 		return 1;
 	}else{
 	    sscanf(*(argv+1), "%d", &ext_ra_inst.total_ras);
@@ -513,6 +556,7 @@ int main(int argc, char *argv[]){
 		sscanf(*(argv+9), "%f", &ext_ra_inst.mean_msg3_latency);
 		sscanf(*(argv+10), "%f", &ext_ra_inst.mean_msg3_retransmit_latency);
 		sscanf(*(argv+11), "%d", &ext_ra_inst.msg3_harq_round_max);
+		sscanf(*(argv+12), "%f", &ext_ra_inst.normal_std);
     }
 #endif
 
@@ -542,12 +586,12 @@ int main(int argc, char *argv[]){
 	do{
 		
 	    timing(&ext_ra_inst);
+	    //printf("%f\n", sim_time);
 	    //printf("%d\n", next_event_type);
 	    switch(next_event_type){
 	        case event_ra_period:
 					ue_backoff_process(&ext_ra_inst);
 	                nprach_period_eNB(&ext_ra_inst);
-	                
 	            break;
 	        case event_stop:
 #ifdef print_output
