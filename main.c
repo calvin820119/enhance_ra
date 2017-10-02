@@ -12,10 +12,10 @@
 //#undef print_output
 
 #define ALWAYS_TX_MSG3
-#undef ALWAYS_TX_MSG3
+//#undef ALWAYS_TX_MSG3
 
 #define TA_NORMAL_DISTRIBUTION
-//#undef TA_NORMAL_DISTRIBUTION
+#undef TA_NORMAL_DISTRIBUTION
 
 
 #define MAX(a, b)	((a)>(b))?(a):(b)
@@ -511,7 +511,7 @@ void report(simulation_t *inst){
     printf("total correct hit : %d\n", inst->num_hit);
     printf("total error hit   : %d\n", inst->num_error_hit);
     printf("total others hit  : %d\n", inst->num_hit_other);
-    printf("correct rate      : %f %%\n", (float)(inst->num_hit*100)/(inst->num_hit+inst->num_error_hit+inst->num_hit_other));
+    printf("correct rate      : %f %%\n", (float)(inst->num_hit*100)/(inst->num_hit+inst->num_hit_other));
 	//printf("total RAR giveup  : %d\n", inst->num_rar_give_up);
    // for(i=0; i<inst->msg3_harq_round_max; ++i){
    // 	printf("total MSG3[%d] giveup : %d\n", i, inst->num_msg3_give_up[i]);
@@ -523,7 +523,7 @@ void report(simulation_t *inst){
     fprintf(fout, "%f ", avg_num_success);	//	avg. success
     fprintf(fout, "%f ", (float)inst->collide/inst->trial);	//	avg. prob. collide
     fprintf(fout, "%f ", inst->total_access_delay/inst->success);	//	avg. access delay
-    fprintf(fout, "%f\n", (float)(inst->num_hit*100)/(inst->num_hit+inst->num_error_hit+inst->num_hit_other));
+    fprintf(fout, "%f\n", (float)(inst->num_hit*100)/(inst->num_hit+inst->num_hit_other));
 }
 
 int main(int argc, char *argv[]){
