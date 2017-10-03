@@ -79,6 +79,11 @@ typedef struct rar_s{
 	ue_t *ue_list;
 }rar_t;
 
+typedef enum distribution_e{
+	dist_normal = 0,
+	dist_determine
+}distribution_t;
+
 typedef struct simulation_s{
     
     int total_ras;//
@@ -100,6 +105,8 @@ typedef struct simulation_s{
     int attempt;//
     int success;//
     int collide;//
+    int collide_preamble;
+    int give_up_rar;
     int retransmit;//
     int trial;//
     int msg3_harq_round_max;	//

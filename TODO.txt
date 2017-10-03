@@ -1,0 +1,2 @@
+1. change arrival process into one shot
+2.
