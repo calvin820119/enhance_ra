@@ -118,7 +118,7 @@ typedef struct simulation_s{
 	int num_hit;		//
 	int num_hit_other;	//
 	int num_error_hit;	//
-	
+	int one_shot_ue;
 }simulation_t;
 
 
