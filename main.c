@@ -7,7 +7,11 @@
 
 //#define file_input
 
+//  TODO: add multiple test for one-shot
+
 static char cfg_always_tx_msg3;
+static arrival_t cfg_ue_arrival;
+static char cfg_algo_version;
 
 #define TA_NORMAL_DISTRIBUTION
 #define UE_ARRIVAL_ONE_SHOT
@@ -44,16 +48,22 @@ float exponetial(float mean){
 
 int algo_msg3_tx_v1(int ta, float ta_mean){
 	float diff = (float)ta - ta_mean;
+	
+	if( 1 == cfg_always_tx_msg3 ){
+        return 1;
+    }
+	
 	return (ABS(diff) <= 1.0f );
 }
 
 int algo_msg3_tx_v2(int ta, float ta_mean, int ta_max, int ta_min, int harq_round){
 	
 	float diff;
-	
-#ifdef ALWAYS_TX_MSG3
-	return 1;
-#endif
+//#ifdef ALWAYS_TX_MSG3
+    if( 1 == cfg_always_tx_msg3 ){
+        return 1;
+    }
+//#endif
 	
 	if((int)(ta_mean+0.5f) == ta){
 		return 1;
@@ -174,12 +184,17 @@ void process_dci(simulation_t *inst, ue_t *ue){
 		ue->msg3_harq_round = 0;
 		ue->retransmit_counter = 0;
 		ue->state = idle;
-#ifdef UE_ARRIVAL_ONE_SHOT
-		inst->one_shot_ue--;
-		ue->arrival_time = 10000.0f;
-#else
-		ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
-#endif
+
+
+//#ifdef UE_ARRIVAL_ONE_SHOT
+        if(cfg_ue_arrival == one_shot){
+            inst->one_shot_ue--;
+		  ue->arrival_time = 10000.0f;
+        }else if(cfg_ue_arrival == poisson){
+            ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
+        }
+//#else		
+//#endif
 
 	}else{	//	nack
 		
@@ -187,11 +202,15 @@ void process_dci(simulation_t *inst, ue_t *ue){
 		if(ue->msg3_harq_round == 0){
 			inst->collide += 1;
 		}
-#ifdef UE_ALGO_V1
-		if(ue->msg3_harq_round < inst->msg3_harq_round_max && ( 1 == algo_msg3_tx_v1(ue->ta, (int)(ue->distance/156.0))) ){
-#else
-		if(ue->msg3_harq_round < inst->msg3_harq_round_max && (0 == ue->ta_count || 1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round))){
-#endif		
+		
+		int decision;
+        if(cfg_algo_version == 1){
+            decision = algo_msg3_tx_v1(ue->ta, (int)(ue->distance/156.0));
+        }else if(cfg_algo_version == 2){
+            decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
+        }
+		
+		if(ue->msg3_harq_round < inst->msg3_harq_round_max && ( 1 == decision) ){
 			ue->arrival_time = sim_time + ue->msg3_grant;
 			ue->msg3_harq_round++;
 			ue->eNB_process_msg3 = 1;
@@ -221,12 +240,15 @@ void process_dci(simulation_t *inst, ue_t *ue){
 				ue->backoff_counter = 0;
 				ue->retransmit_counter = 0;
 				ue->state = idle;
-#ifdef UE_ARRIVAL_ONE_SHOT
-				inst->one_shot_ue--;
-				ue->arrival_time = 10000.0f;
-#else
-				ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
-#endif		
+//#ifdef UE_ARRIVAL_ONE_SHOT
+                if(cfg_ue_arrival == one_shot){
+                	inst->one_shot_ue--;
+				    ue->arrival_time = 10000.0f;
+                }else if(cfg_ue_arrival == poisson){
+                    ue->arrival_time = sim_time + exponetial(inst->mean_interarrival);
+                }
+//#else	
+//#endif		
 			}else{
 				//	backoff
 				ue->retransmit_counter += 1;
@@ -316,11 +338,16 @@ void ue_arrival(simulation_t *inst, ue_t *ue){
 }
 
 void ue_decode_rar(simulation_t *inst, ue_t *ue){
-#ifdef UE_ALGO_V1
-	if( 1 == algo_msg3_tx_v1(ue->ta, (int)(ue->distance/156.0)) ){
-#else
-	if(0 == ue->ta_count || 1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round)){
-#endif
+
+    int decision;
+    if(cfg_algo_version == 1){
+        decision = algo_msg3_tx_v1(ue->ta, (int)(ue->distance/156.0));
+    }else if(cfg_algo_version == 2){
+        decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
+    }
+
+	if( 1 == decision ){
+
 		ue->state = state3;
 		ue->arrival_time = sim_time + ue->msg3_grant;		//	wrong, all ue must be same value(fixed)
 	}else{	//	give up at rar stage
@@ -389,11 +416,14 @@ void initialize_simulation(simulation_t *inst){
     //inst->num_msg3_give_up = (int *)calloc(inst->msg3_harq_round_max, sizeof(int));
     
     for(i=0;i<inst->num_ue;++i){
-#ifdef UE_ARRIVAL_ONE_SHOT
-		inst->ue_list[i].arrival_time = inst->ra_period - 0.001f;
-#else
-    	inst->ue_list[i].arrival_time = sim_time + exponetial(inst->mean_interarrival);
-#endif	
+//#ifdef UE_ARRIVAL_ONE_SHOT
+        if(cfg_ue_arrival == one_shot){
+        	inst->ue_list[i].arrival_time = inst->ra_period - 0.001f;    
+        }else if(cfg_ue_arrival == poisson){
+            inst->ue_list[i].arrival_time = sim_time + exponetial(inst->mean_interarrival);
+        }
+//#else  	
+//#endif	
         inst->ue_list[i].state = idle;
         inst->ue_list[i].backoff_counter = 0;
         inst->ue_list[i].retransmit_counter = 0;
@@ -468,6 +498,8 @@ void initialize_structure(simulation_t *inst){
 	//	simulator
 	cfg_print_output = 0;
 	cfg_always_tx_msg3 = 0;
+    cfg_ue_arrival = one_shot;  //  default setting
+    cfg_algo_version = 1;       //  default setting
 }
 
 void timing(simulation_t *inst){ 
@@ -550,6 +582,11 @@ void get_global_config_parser(FILE *fin){
 	char param[30] = { '\0' };
 	while(!feof(fin)){
 		fscanf(fin, "%s", cmd);
+		
+		if(cmd[0] != '-'){
+		    continue;
+        }
+		
 		if(strstr(cmd, "-PRINT_OUTPUT")){
 			//printf("-print output\n");
 			cfg_print_output = 1; 
@@ -563,7 +600,16 @@ void get_global_config_parser(FILE *fin){
 			}else if(strstr(param, "DIST")){
 				cfg_ta_distribution = dist_determine;
 			}
-		}
+		}else if(strstr(cmd, "-UE_ARRIVAL")){
+		    fscanf(fin, " %s", param);
+		    if(strstr(param, "ONE_SHOT")){
+				cfg_ue_arrival = one_shot;
+			}else if(strstr(param, "POISSON")){
+				cfg_ue_arrival = poisson;
+			}
+        }else if(strstr(cmd, "-ALGO_VERSION")){
+            fscanf(fin, " %d", &cfg_algo_version);
+        }
 	}
 	fseek(fin, 0, SEEK_SET);
 }
@@ -575,6 +621,11 @@ void get_system_config_parser(FILE *fin, simulation_t *inst){
 	while(!feof(fin)){
 		
 		fscanf(fin, "%s", cmd);
+		
+		if(cmd[0] != '-'){
+		    continue;
+        }
+		
 		if(strstr(cmd, "-NORMAL_STD")){
 			fscanf(fin, "%f", &inst->normal_std);
 		}else if(strstr(cmd, "-BS_RADIUS")){
@@ -657,21 +708,21 @@ int main(int argc, char *argv[]){
 	}
 	
     initialize_simulation(&enhance_ra);
-if(cfg_print_output){
-
-    printf("-------------------------------------------------\n");
-    printf("Number of preamble :           %d\n", enhance_ra.number_of_preamble);
-    printf("Number of UE :                 %d\n", enhance_ra.num_ue);
-    printf("Maximum retransmit times :     %d\n", enhance_ra.max_retransmit);
-    printf("Uniform backoff window :       %d\n\n", enhance_ra.back_off_window_size);
-    printf("RAs period :                   %f ms\n", enhance_ra.ra_period*1000);
-    printf("Each UE mean inter-arrival :   %f ms\n", enhance_ra.mean_interarrival*1000);
-    printf("Each UE mean rar latency :     %f ms\n", enhance_ra.mean_rar_latency*1000);
-    printf("Each UE mean msg3 latency :    %f ms\n", enhance_ra.mean_msg3_latency*1000);
-    printf("Each UE mean re-msg3 latency : %f ms\n", enhance_ra.mean_msg3_retransmit_latency*1000);
-    printf("Total simulated RAs :          %d (=%f sec)\n", enhance_ra.total_ras, enhance_ra.total_ras*enhance_ra.ra_period);
-    printf("-------------------------------------------------\n\nrun...\n");
-}
+    if(cfg_print_output){
+    
+        printf("-------------------------------------------------\n");
+        printf("Number of preamble :           %d\n", enhance_ra.number_of_preamble);
+        printf("Number of UE :                 %d\n", enhance_ra.num_ue);
+        printf("Maximum retransmit times :     %d\n", enhance_ra.max_retransmit);
+        printf("Uniform backoff window :       %d\n\n", enhance_ra.back_off_window_size);
+        printf("RAs period :                   %f ms\n", enhance_ra.ra_period*1000);
+        printf("Each UE mean inter-arrival :   %f ms\n", enhance_ra.mean_interarrival*1000);
+        printf("Each UE mean rar latency :     %f ms\n", enhance_ra.mean_rar_latency*1000);
+        printf("Each UE mean msg3 latency :    %f ms\n", enhance_ra.mean_msg3_latency*1000);
+        printf("Each UE mean re-msg3 latency : %f ms\n", enhance_ra.mean_msg3_retransmit_latency*1000);
+        printf("Total simulated RAs :          %d (=%f sec)\n", enhance_ra.total_ras, enhance_ra.total_ras*enhance_ra.ra_period);
+        printf("-------------------------------------------------\n\nrun...\n");
+    }
 	do{
 		
 	    timing(&enhance_ra);
@@ -681,9 +732,9 @@ if(cfg_print_output){
 	                nprach_period_eNB(&enhance_ra);
 	            break;
 	        case event_stop:
-if(cfg_print_output){
-	            printf("report... time:%f\n\n", sim_time);	
-}
+                if(cfg_print_output){
+	               printf("finished time:%f\nreport... \n\n", sim_time);	
+                }
 	            report(&enhance_ra);
 		    break;
 	        default:{

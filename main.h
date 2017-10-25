@@ -1,6 +1,11 @@
 #ifndef _EXT_RAR_
 #define _EXT_RAR_
 
+typedef enum arrival_e{
+    one_shot,
+    poisson
+}arrival_t;
+
 typedef enum events_e{
 	event_ra_period=0,
 
