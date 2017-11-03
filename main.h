@@ -22,6 +22,7 @@ typedef enum ue_state_e{
 }ue_state_t;
 
 typedef struct ue_s{
+	int done;
 	ue_state_t state;
 	//	follow exponetial, indicate next arrival time.
 	float arrival_time;
