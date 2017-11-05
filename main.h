@@ -15,10 +15,10 @@ typedef enum events_e{
 
 typedef enum ue_state_e{
 	idle=0,	//	before select preamble
+	backoff,	//	during backoff counting
 	state2,	//	after NPRACH, before receive DCI
 	state3,	//	(retransmission)after receive DCI, before receive DCI
-	state1,	//	after select preamble, before NPRACH
-	backoff	//	during backoff counting
+	state1	//	after select preamble, before NPRACH
 }ue_state_t;
 
 typedef struct ue_s{
@@ -32,7 +32,7 @@ typedef struct ue_s{
 	int preamble_index;
 	//	backoff triggered-> retransmit+1
 	int retransmit_counter;
-	int backoff_counter;
+	//int backoff_counter;
 	
 	/// MSG2
 	//	timing advance value
@@ -77,13 +77,8 @@ typedef struct msg3_s{
 
 typedef struct preamble_s{
 	int num_selected;
-	ue_t *ue_list;
+	ue_t *ue_list;//TODO fixed to instance, avoid for swap ue
 }preamble_t;
-
-typedef struct rar_s{
-	int num_selected;
-	ue_t *ue_list;
-}rar_t;
 
 typedef enum distribution_e{
 	dist_normal = 0,
