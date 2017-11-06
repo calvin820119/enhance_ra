@@ -140,7 +140,7 @@ void process_dci(simulation_t *inst, ue_t *ue){
 		}
 	}
 	
-	if(ue->msg3_ack == 1){	printf(" ack ");
+	if(ue->msg3_ack == 1){//	printf(" ack ");
 		
 		inst->success++;
 		inst->total_access_delay += sim_time - ue->access_delay;
@@ -180,7 +180,7 @@ void process_dci(simulation_t *inst, ue_t *ue){
 				if((ue_t *)0 != inst->ue_list[inst->one_shot_ue].next){
 					inst->ue_list[inst->one_shot_ue].next->prev = &inst->ue_list[ue - inst->ue_list];
 				}
-				printf("\n[change] %d->%d\n", inst->one_shot_ue, ue - inst->ue_list);
+	//			printf("\n[change] %d->%d\n", inst->one_shot_ue, ue - inst->ue_list);
 				inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
 
 			}
@@ -192,7 +192,7 @@ void process_dci(simulation_t *inst, ue_t *ue){
         }
 
 	}else{	//	nack
-		printf(" nack ");
+//		printf(" nack ");
 		//	collision happen, only count the first collision.
 		if(ue->msg3_harq_round == 0){
 			inst->collide += 1;
@@ -206,11 +206,11 @@ void process_dci(simulation_t *inst, ue_t *ue){
         }
 		
 		if(ue->msg3_harq_round < inst->msg3_harq_round_max && ( 1 == decision) ){
-			//[change time]
+			//TODO: heapify
 			ue->arrival_time = sim_time + ue->msg3_grant;
 			ue->msg3_harq_round++;
 			ue->eNB_process_msg3 = 1;
-			printf(" try again ");
+	//		printf(" try again ");
 		}else{	//	give up
 			
 			if(ue->hit == 1 && ue->msg3_harq_round != inst->msg3_harq_round_max){
@@ -259,12 +259,13 @@ void process_dci(simulation_t *inst, ue_t *ue){
 				//	backoff
 				ue->retransmit_counter += 1;
 				ue->state = backoff;
+				//TODO: heapify
 				ue->arrival_time = sim_time + (inst->ra_period * ceil(inst->back_off_window_size*lcgrand(4)));
-				printf(" giveup backoff %f ", ue->arrival_time);
+		//		printf(" giveup backoff %f ", ue->arrival_time);
 			}
 		}
 	}
-	printf(" state:%d ", ue->state);
+//	printf(" state:%d ", ue->state);
 }
 
 void debug_ues(simulation_t *inst){
@@ -284,7 +285,7 @@ void debug_msg2(simulation_t *inst){
 		printf("[%2d] : %d UE ", i, inst->preamble_table[i].num_selected);
 		
 		if(inst->preamble_table[i].num_selected != 0){
-			ue = inst->preamble_table[i].ue_list;
+			ue = inst->preamble_table[i].ue_list.next;
 			while(ue != (ue_t *)0){
 				printf("%d ", ue-inst->ue_list);
 				ue = ue->next;
@@ -308,27 +309,32 @@ void nprach_period_eNB(simulation_t *inst){
 			if(1 != inst->preamble_table[i].num_selected){
 				inst->collide_preamble+=inst->preamble_table[i].num_selected;
 			}
-		
-			iterator = inst->preamble_table[i].ue_list;
 			
+			iterator = inst->preamble_table[i].ue_list.next;
+		//	printf("1 %d", inst->preamble_table[i].num_selected);
 			ta = msg2_find_ta(inst, iterator);
+		//	printf("2");
+			iterator->prev = (ue_t *)0;
+			
 			rar_time = inst->mean_rar_latency;
 			msg3_time = inst->mean_msg3_latency;
+			
 			while((ue_t *)0 != iterator){
 				num++;
 				iterator->msg3_grant = msg3_time;
 				iterator->msg3_ack = (inst->preamble_table[i].num_selected == 1);
 				iterator->eNB_process_msg3 = 0;
 				iterator->state = state2;
-				//[change time]
+				//TODO heapify
 				iterator->arrival_time = sim_time + rar_time;
 				iterator->ta = ta;
 				iterator = iterator->next;
 			}
+			//printf("2");
 		}		
 		
 		//	clear for next NPRACH period
-		inst->preamble_table[i].ue_list = (ue_t *)0;
+		inst->preamble_table[i].ue_list.next = (ue_t *)0;
 		inst->preamble_table[i].num_selected = 0;
 	}
 
@@ -351,13 +357,13 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
     }
 
 	if( 1 == decision ){
-		printf(" rar success");
+	//	printf(" rar success");
 		ue->state = state3;
-		//[change time]
-		ue->arrival_time = sim_time + ue->msg3_grant;		//	wrong, all ue must be same value(fixed)
+		//TODO heapify
+		ue->arrival_time = sim_time + ue->msg3_grant;
 	}else{	//	give up at rar stage
 		
-		printf(" rar giveup");
+	//	printf(" rar giveup");
 		
 		inst->give_up_rar++;
 		
@@ -366,10 +372,10 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
 		}
 		ue->hit = 0;
 		
-		//	give up(backoff)
 		ue->retransmit_counter += 1;
-        //  uniform backoff
 		ue->state = backoff;
+		
+		//TODO: heapify
 		ue->arrival_time = sim_time + (inst->ra_period * ceil(inst->back_off_window_size*lcgrand(4)));
 		ue->msg3_harq_round = 0;
 		
@@ -400,17 +406,21 @@ void ue_selected_preamble(simulation_t *inst, ue_t *ue){
     
     ue->state = state1;
     
+    /*
     if( (ue_t *)0 == inst->preamble_table[preamble_index].ue_list ){
         inst->preamble_table[preamble_index].ue_list = ue;
 		ue->next = (ue_t *)0;
 		ue->prev = (ue_t *)0;
-    }else{
-        iterator = inst->preamble_table[preamble_index].ue_list;
-        inst->preamble_table[preamble_index].ue_list = ue;
-        iterator->prev = ue;
+    }else{*/
+    
+    //	ue_list first node is empty for pointer
+        iterator = inst->preamble_table[preamble_index].ue_list.next;
+        inst->preamble_table[preamble_index].ue_list.next = ue;
+        if((ue_t *)0 != iterator)
+			iterator->prev = ue;
         ue->next = iterator;
-		ue->prev = (ue_t *)0;
-    }
+		ue->prev = &inst->preamble_table[preamble_index].ue_list;
+    //}
 }
 
 void initialize_simulation(simulation_t *inst){
@@ -423,7 +433,7 @@ void initialize_simulation(simulation_t *inst){
     
     for(i=0;i<inst->num_ue;++i){
         if(cfg_ue_arrival == one_shot){
-        	//[change time]
+        	//for one-shot distribution, it's not nessary to change the heap since initialize
         	inst->ue_list[i].arrival_time = inst->ra_period - 0.001f;    
         }else if(cfg_ue_arrival == poisson){
             inst->ue_list[i].arrival_time = sim_time + exponetial(inst->mean_interarrival);
@@ -452,7 +462,7 @@ void initialize_simulation(simulation_t *inst){
     
     for(i=0;i<inst->number_of_preamble;++i){
     	inst->preamble_table[i].num_selected = 0;
-    	inst->preamble_table[i].ue_list = (ue_t *)0;
+    //	inst->preamble_table[i].ue_list = (ue_t *)0;
 	}
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
@@ -547,12 +557,13 @@ void report(simulation_t *inst){
     float avg_num_success = (float)inst->success/num_ras;
     float avg_num_collide = (float)inst->collide/num_ras;
     
+    /*
 	for(i=0; i<inst->one_shot_ue; ++i){
 		printf("%f ", inst->ue_list[i].arrival_time);
 		printf("%d ", inst->ue_list[i].state);
 		printf("%d ", inst->ue_list[i].retransmit_counter);
 		printf("%d\n", inst->ue_list[i].msg3_harq_round);
-	}
+	}*/
 
 
 	if(cfg_print_output){
@@ -578,7 +589,7 @@ void report(simulation_t *inst){
 	    printf("giveup/attemp     : %f\n", (float)inst->give_up_rar/inst->trial);
 		printf("avg. prob. collide: %f\n", (float)inst->collide_preamble/inst->trial);
 	    
-	    printf("[one-shot] Ps     : %f %\n", 100.0*(float)inst->success/inst->attempt);
+	    printf("[one-shot] Ps     : %f %\n", (float)inst->success/inst->attempt);
 	    
 	    printf("\n");
 	}
@@ -588,7 +599,7 @@ void report(simulation_t *inst){
     //fprintf(fout, "%f\n", (float)(inst->num_hit*100)/(inst->num_hit+inst->num_hit_other));
     
     //	performance index now we only consider Ps 
-    fprintf(fout, "%f\n",  100.0*(float)inst->success/inst->attempt);
+    fprintf(fout, "%f\n",  (float)inst->success/inst->attempt);
 }
 
 void get_global_config_parser(FILE *fin){
@@ -772,9 +783,11 @@ int main(int argc, char *argv[]){
 	do{		
 	    timing(&enhance_ra);
 	    
+	    
+	    
 	    switch(next_event_type){
 	        case event_ra_period:
-	        	
+	        	//debug_msg2(&enhance_ra);
 				nprach_period_eNB(&enhance_ra);
 	            break;
 	        case event_stop:
@@ -787,25 +800,25 @@ int main(int argc, char *argv[]){
 	        	ue_id = next_event_type - num_normal_event;
 	        	switch(enhance_ra.ue_list[ue_id].state){
 	        		case idle:
-	        			printf("[%f][arrival] ue%d", sim_time, ue_id);
+	        //			printf("[%f][arrival] ue%d", sim_time, ue_id);
 	        			ue_arrival(&enhance_ra, &enhance_ra.ue_list[ue_id]);
 	        			break;
 	        		case state2:
-	        			printf("[%f][rar] ue%d", sim_time, ue_id);
+	        //			printf("[%f][rar] ue%d", sim_time, ue_id);
 	        			ue_decode_rar(&enhance_ra, &enhance_ra.ue_list[ue_id]);
 	        			break;
 	        		case state3:
-	        			printf("[%f][rx msg3dci] ue%d", sim_time, ue_id);
+	        //			printf("[%f][rx msg3dci] ue%d", sim_time, ue_id);
 	        			process_dci(&enhance_ra, &enhance_ra.ue_list[ue_id]);
 	        			break;
 	        		case backoff:
-	        			printf("[%f][backoff] ue%d", sim_time, ue_id);
+	        //			printf("[%f][backoff] ue%d", sim_time, ue_id);
 	        			ue_selected_preamble(&enhance_ra, &enhance_ra.ue_list[ue_id]);
 	        			break;
 	        		default:
 	        			break;
 				}
-				printf("\n");
+			//	printf("\n");
 			}
 	        break;
 	    }

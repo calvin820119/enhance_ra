@@ -68,16 +68,16 @@ typedef struct ue_s{
 	float access_delay;
 	
 }ue_t;
-
+/* 
 typedef struct msg3_s{
 	int harq_round;
 	int num_selected;
 	ue_t *msg3_ue;
-}msg3_t;
+}msg3_t;*/ 
 
 typedef struct preamble_s{
 	int num_selected;
-	ue_t *ue_list;//TODO fixed to instance, avoid for swap ue
+	ue_t ue_list;
 }preamble_t;
 
 typedef enum distribution_e{

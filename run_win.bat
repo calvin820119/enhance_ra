@@ -17,6 +17,7 @@ main.exe -NUM_UE 8000
 main.exe -NUM_UE 9000
 main.exe -NUM_UE 10000
 
+
 set "endTime=%time: =0%"
 
 rem Get elapsed time:
