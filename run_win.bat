@@ -1,35 +1,157 @@
-echo off
-setlocal EnableDelayedExpansion
 
-set "startTime=%time: =0%"
+main.exe -NUM_UE 10 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 50 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 100 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 150 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 200 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 250 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 300 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 350 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 400 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 450 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 500 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 550 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 600 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 650 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 700 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 750 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 800 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 850 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 900 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 950 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 1000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 2000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 3000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 4000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 5000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 6000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 7000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 8000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 9000 -ALWAYS_TX_MSG3
+main.exe -NUM_UE 10000 -ALWAYS_TX_MSG3
 
-set pwd=%~dp0
-cd %pwd%
+main.exe -NUM_UE 10 -NORMAL_STD 0.0
+main.exe -NUM_UE 50 -NORMAL_STD 0.0
+main.exe -NUM_UE 100 -NORMAL_STD 0.0
+main.exe -NUM_UE 150 -NORMAL_STD 0.0
+main.exe -NUM_UE 200 -NORMAL_STD 0.0
+main.exe -NUM_UE 250 -NORMAL_STD 0.0
+main.exe -NUM_UE 300 -NORMAL_STD 0.0
+main.exe -NUM_UE 350 -NORMAL_STD 0.0
+main.exe -NUM_UE 400 -NORMAL_STD 0.0
+main.exe -NUM_UE 450 -NORMAL_STD 0.0
+main.exe -NUM_UE 500 -NORMAL_STD 0.0
+main.exe -NUM_UE 550 -NORMAL_STD 0.0
+main.exe -NUM_UE 600 -NORMAL_STD 0.0
+main.exe -NUM_UE 650 -NORMAL_STD 0.0
+main.exe -NUM_UE 700 -NORMAL_STD 0.0
+main.exe -NUM_UE 750 -NORMAL_STD 0.0
+main.exe -NUM_UE 800 -NORMAL_STD 0.0
+main.exe -NUM_UE 850 -NORMAL_STD 0.0
+main.exe -NUM_UE 900 -NORMAL_STD 0.0
+main.exe -NUM_UE 950 -NORMAL_STD 0.0
+main.exe -NUM_UE 1000 -NORMAL_STD 0.0
+main.exe -NUM_UE 2000 -NORMAL_STD 0.0
+main.exe -NUM_UE 3000 -NORMAL_STD 0.0
+main.exe -NUM_UE 4000 -NORMAL_STD 0.0
+main.exe -NUM_UE 5000 -NORMAL_STD 0.0
+main.exe -NUM_UE 6000 -NORMAL_STD 0.0
+main.exe -NUM_UE 7000 -NORMAL_STD 0.0
+main.exe -NUM_UE 8000 -NORMAL_STD 0.0
+main.exe -NUM_UE 9000 -NORMAL_STD 0.0
+main.exe -NUM_UE 10000 -NORMAL_STD 0.0
 
-main.exe -NUM_UE 1000
-main.exe -NUM_UE 2000
-main.exe -NUM_UE 3000
-main.exe -NUM_UE 4000
-main.exe -NUM_UE 5000
-main.exe -NUM_UE 6000
-main.exe -NUM_UE 7000
-main.exe -NUM_UE 8000
-main.exe -NUM_UE 9000
-main.exe -NUM_UE 10000
+main.exe -NUM_UE 10 -NORMAL_STD 5.0
+main.exe -NUM_UE 50 -NORMAL_STD 5.0
+main.exe -NUM_UE 100 -NORMAL_STD 5.0
+main.exe -NUM_UE 150 -NORMAL_STD 5.0
+main.exe -NUM_UE 200 -NORMAL_STD 5.0
+main.exe -NUM_UE 250 -NORMAL_STD 5.0
+main.exe -NUM_UE 300 -NORMAL_STD 5.0
+main.exe -NUM_UE 350 -NORMAL_STD 5.0
+main.exe -NUM_UE 400 -NORMAL_STD 5.0
+main.exe -NUM_UE 450 -NORMAL_STD 5.0
+main.exe -NUM_UE 500 -NORMAL_STD 5.0
+main.exe -NUM_UE 550 -NORMAL_STD 5.0
+main.exe -NUM_UE 600 -NORMAL_STD 5.0
+main.exe -NUM_UE 650 -NORMAL_STD 5.0
+main.exe -NUM_UE 700 -NORMAL_STD 5.0
+main.exe -NUM_UE 750 -NORMAL_STD 5.0
+main.exe -NUM_UE 800 -NORMAL_STD 5.0
+main.exe -NUM_UE 850 -NORMAL_STD 5.0
+main.exe -NUM_UE 900 -NORMAL_STD 5.0
+main.exe -NUM_UE 950 -NORMAL_STD 5.0
+main.exe -NUM_UE 1000 -NORMAL_STD 5.0
+main.exe -NUM_UE 2000 -NORMAL_STD 5.0
+main.exe -NUM_UE 3000 -NORMAL_STD 5.0
+main.exe -NUM_UE 4000 -NORMAL_STD 5.0
+main.exe -NUM_UE 5000 -NORMAL_STD 5.0
+main.exe -NUM_UE 6000 -NORMAL_STD 5.0
+main.exe -NUM_UE 7000 -NORMAL_STD 5.0
+main.exe -NUM_UE 8000 -NORMAL_STD 5.0
+main.exe -NUM_UE 9000 -NORMAL_STD 5.0
+main.exe -NUM_UE 10000 -NORMAL_STD 5.0
 
+main.exe -NUM_UE 10 -NORMAL_STD 10.0
+main.exe -NUM_UE 50 -NORMAL_STD 10.0
+main.exe -NUM_UE 100 -NORMAL_STD 10.0
+main.exe -NUM_UE 150 -NORMAL_STD 10.0
+main.exe -NUM_UE 200 -NORMAL_STD 10.0
+main.exe -NUM_UE 250 -NORMAL_STD 10.0
+main.exe -NUM_UE 300 -NORMAL_STD 10.0
+main.exe -NUM_UE 350 -NORMAL_STD 10.0
+main.exe -NUM_UE 400 -NORMAL_STD 10.0
+main.exe -NUM_UE 450 -NORMAL_STD 10.0
+main.exe -NUM_UE 500 -NORMAL_STD 10.0
+main.exe -NUM_UE 550 -NORMAL_STD 10.0
+main.exe -NUM_UE 600 -NORMAL_STD 10.0
+main.exe -NUM_UE 650 -NORMAL_STD 10.0
+main.exe -NUM_UE 700 -NORMAL_STD 10.0
+main.exe -NUM_UE 750 -NORMAL_STD 10.0
+main.exe -NUM_UE 800 -NORMAL_STD 10.0
+main.exe -NUM_UE 850 -NORMAL_STD 10.0
+main.exe -NUM_UE 900 -NORMAL_STD 10.0
+main.exe -NUM_UE 950 -NORMAL_STD 10.0
+main.exe -NUM_UE 1000 -NORMAL_STD 10.0
+main.exe -NUM_UE 2000 -NORMAL_STD 10.0
+main.exe -NUM_UE 3000 -NORMAL_STD 10.0
+main.exe -NUM_UE 4000 -NORMAL_STD 10.0
+main.exe -NUM_UE 5000 -NORMAL_STD 10.0
+main.exe -NUM_UE 6000 -NORMAL_STD 10.0
+main.exe -NUM_UE 7000 -NORMAL_STD 10.0
+main.exe -NUM_UE 8000 -NORMAL_STD 10.0
+main.exe -NUM_UE 9000 -NORMAL_STD 10.0
+main.exe -NUM_UE 10000 -NORMAL_STD 10.0
 
-set "endTime=%time: =0%"
-
-rem Get elapsed time:
-set "end=!endTime:%time:~8,1%=%%100)*100+1!"  &  set "start=!startTime:%time:~8,1%=%%100)*100+1!"
-set /A "elap=((((10!end:%time:~2,1%=%%100)*60+1!%%100)-((((10!start:%time:~2,1%=%%100)*60+1!%%100)"
-
-rem Convert elapsed time to HH:MM:SS:CC format:
-set /A "cc=elap%%100+100,elap/=100,ss=elap%%60+100,elap/=60,mm=elap%%60+100,hh=elap/60+100"
-
-echo ========================
-echo Start:    %startTime%
-echo End:      %endTime%
-echo Elapsed:  %hh:~1%%time:~2,1%%mm:~1%%time:~2,1%%ss:~1%%time:~8,1%%cc:~1%
+main.exe -NUM_UE 10 -NORMAL_STD 15.0
+main.exe -NUM_UE 50 -NORMAL_STD 15.0
+main.exe -NUM_UE 100 -NORMAL_STD 15.0
+main.exe -NUM_UE 150 -NORMAL_STD 15.0
+main.exe -NUM_UE 200 -NORMAL_STD 15.0
+main.exe -NUM_UE 250 -NORMAL_STD 15.0
+main.exe -NUM_UE 300 -NORMAL_STD 15.0
+main.exe -NUM_UE 350 -NORMAL_STD 15.0
+main.exe -NUM_UE 400 -NORMAL_STD 15.0
+main.exe -NUM_UE 450 -NORMAL_STD 15.0
+main.exe -NUM_UE 500 -NORMAL_STD 15.0
+main.exe -NUM_UE 550 -NORMAL_STD 15.0
+main.exe -NUM_UE 600 -NORMAL_STD 15.0
+main.exe -NUM_UE 650 -NORMAL_STD 15.0
+main.exe -NUM_UE 700 -NORMAL_STD 15.0
+main.exe -NUM_UE 750 -NORMAL_STD 15.0
+main.exe -NUM_UE 800 -NORMAL_STD 15.0
+main.exe -NUM_UE 850 -NORMAL_STD 15.0
+main.exe -NUM_UE 900 -NORMAL_STD 15.0
+main.exe -NUM_UE 950 -NORMAL_STD 15.0
+main.exe -NUM_UE 1000 -NORMAL_STD 15.0
+main.exe -NUM_UE 2000 -NORMAL_STD 15.0
+main.exe -NUM_UE 3000 -NORMAL_STD 15.0
+main.exe -NUM_UE 4000 -NORMAL_STD 15.0
+main.exe -NUM_UE 5000 -NORMAL_STD 15.0
+main.exe -NUM_UE 6000 -NORMAL_STD 15.0
+main.exe -NUM_UE 7000 -NORMAL_STD 15.0
+main.exe -NUM_UE 8000 -NORMAL_STD 15.0
+main.exe -NUM_UE 9000 -NORMAL_STD 15.0
+main.exe -NUM_UE 10000 -NORMAL_STD 15.0
 
 pause

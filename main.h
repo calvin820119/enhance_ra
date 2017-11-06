@@ -22,6 +22,7 @@ typedef enum ue_state_e{
 }ue_state_t;
 
 typedef struct ue_s{
+    
 	int done;
 	ue_state_t state;
 	//	follow exponetial, indicate next arrival time.
@@ -48,10 +49,9 @@ typedef struct ue_s{
 	int msg3_harq_round;
 	double msg3_grant;
 	int msg3_ack;
-	int hit;
 	
 	/// MSG4
-	
+	int ue_id;
 	/// GLOBAL
 	//	used for msg1, msg3
 	struct ue_s *next;
@@ -116,9 +116,7 @@ typedef struct simulation_s{
 	//int num_rar_give_up;
 	//int *num_msg3_give_up;
 	float normal_std;
-	int num_hit;		//
-	int num_hit_other;	//
-	int num_error_hit;	//
+    int retransmit_count;
 	int one_shot_ue;
 }simulation_t;
 
