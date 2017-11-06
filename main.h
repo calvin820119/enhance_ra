@@ -107,7 +107,6 @@ typedef struct simulation_s{
     int success;//
     int collide;//
     int collide_preamble;
-    int give_up_rar;
     int retransmit;//
     int trial;//
     int msg3_harq_round_max;	//
@@ -118,6 +117,8 @@ typedef struct simulation_s{
 	float normal_std;
     int retransmit_count;
 	int one_shot_ue;
+	float ps;
+	float avg_trial;
 }simulation_t;
 
 
