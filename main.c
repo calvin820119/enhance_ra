@@ -645,6 +645,7 @@ void initialize_simulation(simulation_t *inst){
     for(i=0;i<inst->number_of_preamble;++i){
     	inst->preamble_table[i].num_selected = 0;
     	inst->preamble_table[i].ue_list.next = (ue_t *)0;
+    	inst->preamble_table[i].ue_list.ue_id = -1;
 	}
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
