@@ -5,8 +5,8 @@
 #include "lcgrand.h"
 #include <string.h>
 
-#define BOOST 1
-
+#define SIM_ROUND 100 
+ 
 //#define file_input
 
 static char cfg_always_tx_msg3;
@@ -54,7 +54,7 @@ int algo_msg3_tx_v1(int ta, float ta_mean){
         return 1;
     }
 	
-	ret = (ABS(diff) <= 15.0f );
+	ret = (ABS(diff) <= 1.0f );
 	return ret;
 }
 
@@ -769,7 +769,7 @@ int main(int argc, char *argv[]){
 		return 1;
 	}
 	
-	for(sim_count = 0; sim_count < 100; ++sim_count){
+	for(sim_count = 0; sim_count < SIM_ROUND; ++sim_count){
         
         //  TODO: maintain the ue instance, don't use free and re-allocation
         
@@ -832,8 +832,9 @@ int main(int argc, char *argv[]){
         free_simulation(&enhance_ra);
     }
     
-    fprintf(fout, "%f\n", (float)enhance_ra.ps/100);
-    printf("avg. ue in ra : %f\n", (float)enhance_ra.avg_trial/100);
+    fprintf(fout, "%f\n", (float)enhance_ra.ps/SIM_ROUND);
+    printf("ps            : %f\n", (float)enhance_ra.ps/SIM_ROUND);
+	printf("avg. ue in ra : %f\n", (float)enhance_ra.avg_trial/SIM_ROUND);
     
 #ifdef file_input
 	fclose(fin);
