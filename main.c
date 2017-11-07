@@ -36,7 +36,7 @@ static char str_fout_name[50];
 static int cfg_print_output;
 static distribution_t cfg_ta_distribution;
 
-void debug_heap(simulation_t *inst){ 
+void debug_heap(simulation_t *inst){	return;
     int i;
     for(i=0; i<inst->one_shot_ue; ++i){
         printf("[ue%d] %.4f  ", inst->ue_list[i].ue_id, inst->ue_list[i].arrival_time);
@@ -49,95 +49,88 @@ void debug_heap(simulation_t *inst){
         printf("\n");
     }
     printf("\n");
-    getchar();
+    //getchar();
 }
 
 void min_heapify(simulation_t *inst, ue_t *heap_root, ue_t **node){ //printf("1");
 
-    ue_t *p = *node;
+    ue_t *p = *node;//, min_next, min_prev, p_next, p_prev;
     ue_t *minimum, temp;
     int index = p - heap_root;
-printf("\theapify ue%d  arrival:%f\n", p->ue_id, p->arrival_time);
-//printf("[before]\n");
- //   debug_msg2(inst);
-//printf("[before][%p] p->next %p p->prev %p\n", *node, (*node)->next, (*node)->prev);
+//printf("\theapify ue%d  arrival:%f\n", p->ue_id, p->arrival_time);
+
     while(1){
-     //   printf("index %d, \n", index);
         
         minimum = p;
         
-        if(minimum->arrival_time > heap_root[(index<<1)+1].arrival_time && ((index<<1)+1)<inst->one_shot_ue ){
+        
+        if( ((index<<1)+1)<inst->one_shot_ue )
+        if(minimum->arrival_time > heap_root[(index<<1)+1].arrival_time ){
             minimum = &heap_root[(index<<1)+1];
         }
-        if(minimum->arrival_time > heap_root[(index<<1)+2].arrival_time && ((index<<1)+2)<inst->one_shot_ue ){
+        
+        if(((index<<1)+2)<inst->one_shot_ue)
+        if(minimum->arrival_time > heap_root[(index<<1)+2].arrival_time ){
             minimum = &heap_root[(index<<1)+2];
         }
+        //printf("1");
         if(minimum != p){
             //swap minimum and p
-            printf("p:ue%d(%d)\tmin:ue%d(%d)\n", p->ue_id, p-heap_root, minimum->ue_id, minimum-heap_root);
-            printf("  p->next %p\n  p->prev %p\nmin->next %p\nmin->prev %p\n", p->next, p->prev, minimum->next, minimum->prev);
+            //printf("p:ue%d(%d)\tmin:ue%d(%d)\n", p->ue_id, p-heap_root, minimum->ue_id, minimum-heap_root);
+            //printf("  p->next %p\n  p->prev %p\nmin->next %p\nmin->prev %p\n", p->next, p->prev, minimum->next, minimum->prev);
             
-            if((ue_t *)0 != p->prev){
-				//if(p->prev->next != minimum)
+            if((ue_t *)0 != p->prev && p->prev != minimum){
                 p->prev->next = minimum;
 			}
-			if((ue_t *)0 != p->next){
-				//if(p->next->prev != minimum)
+			if((ue_t *)0 != p->next && p->next != minimum){
                 p->next->prev = minimum;
 			}
-            if((ue_t *)0 != minimum->prev){
-				//if(minimum->prev->next != p)
+            if((ue_t *)0 != minimum->prev && minimum->prev != p){
 				minimum->prev->next = p;
 			}
-			if((ue_t *)0 != minimum->next){
-				//if(minimum->next->prev != p)
+			if((ue_t *)0 != minimum->next && minimum->next != p){
 				minimum->next->prev = p;
 			}
             
-            
-            if(minimum->next == p){
-                minimum->next = minimum;
-            }
-            if(minimum->prev == p){
-                minimum->prev = minimum;
-            }
-            if(p->next == minimum){
-                p->next = p;
-            }
-            if(p->prev == minimum){
-                p->prev = p;
-            }
-            
-            //printf("\n*****preamble %p %d    p%d %p     min%d %p    \n", inst->preamble_table[5].ue_list.next, inst->preamble_table[5].ue_list.next->ue_id, p->ue_id, p, minimum->ue_id, minimum);
             temp = *minimum;
             *minimum = *p;
             *p = temp;
-            //printf("\n*****preamble %p %d    p%d %p     min%d %p    \n", inst->preamble_table[5].ue_list.next, inst->preamble_table[5].ue_list.next->ue_id, p->ue_id, p, minimum->ue_id, minimum);
+            
+            if(p->next == p){
+            	p->next = minimum;
+			}
+			if(p->prev == p){
+            	p->prev = minimum;
+			}
+            if(minimum->next == minimum){
+            	minimum->next = p;
+			}
+			if(minimum->prev == minimum){
+            	minimum->prev = p;
+			}
             debug_heap(inst);
             
-//            printf("\t[change] %p <-> %p\n", minimum, p);
             *node = minimum;
             
             //  next index
             index = minimum - heap_root;
             //  next iterator
             p = minimum;
-//            printf("\t[after] p->next %p p->prev %p\n", p->next, p->prev);
-//debug_msg2(inst);
+
         }else{
             
             break;
         }
-        
+       // printf("2");
         if( index<<1 >= inst->one_shot_ue){
             break;
         }
     }
-    //printf("[after] [%p] p->next %p p->prev %p\n", *node, (*node)->next, (*node)->prev);
-    //printf("2");
-    printf("[after HEAPIFY]\n");
-    debug_msg2(inst);
+
+    //printf("[after HEAPIFY]\n");
+    //debug_msg2(inst);
     //getchar();
+    
 }
 
 float normal(float mean, float std){
@@ -218,7 +211,7 @@ void process_dci(simulation_t *inst, ue_t *ue){
 	ue_t *iterator;
 	float retransmit_grant = inst->mean_msg3_retransmit_latency;
 	//	need to finish all the ack/nack decision before the UE receive DCI 
-	printf("%p %p %p\n", ue, ue->next, ue->prev);
+	//printf("%p %p %p\n", ue, ue->next, ue->prev);
 	
 	if(1 == ue->eNB_process_msg3){ 
 		ue->eNB_process_msg3 = 0;
@@ -285,9 +278,9 @@ inst->retransmit_count += ue->retransmit_counter;
 				//remove ue from heap
 				//inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
 				*ue = inst->ue_list[inst->one_shot_ue];
-				printf("%f---------#0----------\n", sim_time);
+			//	printf("%f---------#0----------\n", sim_time);
                 min_heapify(inst, inst->ue_list, &ue);
-                printf("---------@0----------\n");
+            //    printf("---------@0----------\n");
 			}
 #else
 			ue->arrival_time = 200.0f;
@@ -315,7 +308,7 @@ inst->retransmit_count += ue->retransmit_counter;
 			ue->arrival_time = sim_time + ue->msg3_grant;
 			ue->msg3_harq_round++;
 			ue->eNB_process_msg3 = 1;
-			printf("---------#1----------\n");
+		//	printf("---------#1----------\n");
 			min_heapify(inst, inst->ue_list, &ue);
 		}else{	//	give up
 			
@@ -349,8 +342,8 @@ inst->retransmit_count += ue->retransmit_counter;
 						//    list index: ue-inst->ue_list
 						
                         inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
-                        printf("---------#2----------\n");
-                        min_heapify(inst, inst->ue_list, &inst->ue_list[ue - inst->ue_list]);
+              //          printf("---------#2----------\n");
+                        min_heapify(inst, inst->ue_list, &ue);
 					}
 #else
 					ue->arrival_time = 200.0f;
@@ -366,7 +359,7 @@ inst->retransmit_count += ue->retransmit_counter;
 				//TODO: heapify
 				ue->arrival_time = sim_time + (inst->ra_period * ceil(inst->back_off_window_size*lcgrand(4)));
 				
-				printf("---------#3----------\n");
+		//		printf("---------#3----------\n");
 				min_heapify(inst, inst->ue_list, &ue);
 			}
 		}
@@ -408,8 +401,8 @@ void nprach_period_eNB(simulation_t *inst){
 	float msg3_time;
 	ue_t *iterator, *iterator1;
 	inst->ras++;
-	printf("before rach---------------------------------------------\n\n");
-	debug_msg2(inst);
+//	printf("before rach---------------------------------------------\n\n");
+//	debug_msg2(inst);
 	
 	for(i=0; i<inst->number_of_preamble; ++i){
 		
@@ -444,7 +437,7 @@ void nprach_period_eNB(simulation_t *inst){
 				iterator->arrival_time = sim_time + rar_time;
 				iterator->ta = ta;
 				
-				printf("---------#4----------\n");
+	//			printf("---------#4----------\n");
 				min_heapify(inst, inst->ue_list, &iterator);
 			//	getchar();
                 iterator = iterator->next;
@@ -453,8 +446,8 @@ void nprach_period_eNB(simulation_t *inst){
 		
 		
 	}
-    printf("after rach---------------------------------------------\n\n");
-	debug_msg2(inst);
+ //   printf("after rach---------------------------------------------\n\n");
+//	debug_msg2(inst);
 	time_next_event[event_ra_period] = sim_time + inst->ra_period;
 }
 
@@ -504,8 +497,8 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
     					//remove ue from heap
                         	inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
                         	
-                        	printf("---------#5----------\n");
-                        	min_heapify(inst, inst->ue_list, &inst->ue_list[ue - inst->ue_list]);
+                        //	printf("---------#5----------\n");
+                        	min_heapify(inst, inst->ue_list, &ue);
     					}
     					
     #else
@@ -524,7 +517,7 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
     		//TODO heapify
     		ue->arrival_time = sim_time + ue->msg3_grant;
     		
-    		printf("---------#6----------\n");
+    	//	printf("---------#6----------\n");
     		min_heapify(inst, inst->ue_list, &ue);
     	}else{	//	give up at rar stage
     		
@@ -547,7 +540,7 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
             //TODO: heapify
     		ue->arrival_time = sim_time + (inst->ra_period * ceil(inst->back_off_window_size*lcgrand(4)));
     		
-    		printf("---------#7----------\n");
+    //		printf("---------#7----------\n");
     		min_heapify(inst, inst->ue_list, &ue);
     	}
     }
@@ -578,7 +571,7 @@ void ue_selected_preamble(simulation_t *inst, ue_t *ue){
     ue->next = iterator;
 	ue->prev = &inst->preamble_table[preamble_index].ue_list;
 	
-	printf("---------#8----------\n");
+//	printf("---------#8----------\n");
 	min_heapify(inst, inst->ue_list, &ue);
 }
 
@@ -626,6 +619,7 @@ void initialize_simulation(simulation_t *inst){
         inst->ue_list[i].preamble_index = 0;
         
         inst->ue_list[i].next = (ue_t *)0;
+        inst->ue_list[i].prev = (ue_t *)0;
         inst->ue_list[i].access_delay = 0;
         rand_radius = inst->eNB_radius * lcgrand(3);
         rand_angle = 2* pi * lcgrand(4);
@@ -969,16 +963,16 @@ int main(int argc, char *argv[]){
     	        default:{
     	        	ue_id = next_event_type - num_normal_event;
     	        	switch(enhance_ra.ue_list[ue_id].state){
-    	        		case idle:   printf("ue%d idle\n", enhance_ra.ue_list[ue_id].ue_id);
+    	        		case idle:   //printf("ue%d idle\n", enhance_ra.ue_list[ue_id].ue_id);
     	        			ue_arrival(&enhance_ra, &enhance_ra.ue_list[ue_id]);
     	        			break;
-    	        		case state2:   printf("ue%d ue_decode_rar\n", enhance_ra.ue_list[ue_id].ue_id);
+    	        		case state2:   //printf("ue%d ue_decode_rar\n", enhance_ra.ue_list[ue_id].ue_id);
     	        			ue_decode_rar(&enhance_ra, &enhance_ra.ue_list[ue_id]);
     	        			break;
-    	        		case state3:   printf("ue%d process_dci\n", enhance_ra.ue_list[ue_id].ue_id);
+    	        		case state3:   //printf("ue%d process_dci\n", enhance_ra.ue_list[ue_id].ue_id);
     	        			process_dci(&enhance_ra, &enhance_ra.ue_list[ue_id]);
     	        			break;
-    	        		case backoff:   printf("ue%d ue_select_preamble\n", enhance_ra.ue_list[ue_id].ue_id);
+    	        		case backoff:   //printf("ue%d ue_select_preamble\n", enhance_ra.ue_list[ue_id].ue_id);
     	        			ue_selected_preamble(&enhance_ra, &enhance_ra.ue_list[ue_id]);
     	        			break;
     	        		default:
