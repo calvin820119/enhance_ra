@@ -5,7 +5,7 @@
 #include "lcgrand.h"
 #include <string.h>
 
-#define SIM_ROUND 200 
+#define SIM_ROUND 100 
  
 //#define file_input
 
@@ -143,7 +143,7 @@ float exponetial(float mean){
     return -mean * log(lcgrand(1));
 }
 
-int algo_msg3_tx_v1(int ta, float ta_mean){
+int algo_msg3_tx_v1(simulation_t *inst, int ta, float ta_mean){
 	float diff = (float)ta - ta_mean;
 	int ret;
 	
@@ -151,7 +151,7 @@ int algo_msg3_tx_v1(int ta, float ta_mean){
         return 1;
     }
 	
-	ret = (ABS(diff) <= 1.0f );
+	ret = (ABS(diff) <= inst->threshold );
 	return ret;
 }
 
@@ -298,7 +298,7 @@ inst->retransmit_count += ue->retransmit_counter;
 		int decision;
 		
         if(cfg_algo_version == 1){
-            decision = algo_msg3_tx_v1(ue->ta, (int)(ue->distance/156.0));
+            decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
         }else if(cfg_algo_version == 2){
             decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
         }
@@ -427,11 +427,13 @@ void nprach_period_eNB(simulation_t *inst){
 			rar_time = inst->mean_rar_latency;
 			msg3_time = inst->mean_msg3_latency;
 			
+			
+			
 			while((ue_t *)0 != iterator){
 				num++;
 				iterator->msg3_grant = msg3_time;
 				iterator->msg3_ack = (inst->preamble_table[i].num_selected == 1);
-				iterator->eNB_process_msg3 = 0;
+				iterator->eNB_process_msg3 = 1;
 				iterator->state = state2;
 				//TODO heapify
 				iterator->arrival_time = sim_time + rar_time;
@@ -462,10 +464,20 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
 
     int decision;
     if(cfg_algo_version == 1){
-        decision = algo_msg3_tx_v1(ue->ta, (int)(ue->distance/156.0));
+        decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
     }else if(cfg_algo_version == 2){
         decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
     }
+
+
+    ue->state = state3;
+    //TODO heapify
+    ue->arrival_time = sim_time + ue->msg3_grant;
+    		
+    //	printf("---------#6----------\n");
+    min_heapify(inst, inst->ue_list, &ue);
+    //printf("ue%d(%d) %p %p\n", ue->ue_id, ue->retransmit_counter, ue->next, ue->prev);
+    return;
 
     if(ue->retransmit_counter >= inst->max_retransmit){
         
@@ -666,7 +678,7 @@ void initialize_structure(simulation_t *inst){
 	
 	inst->ue_list = (ue_t *)0;
 	inst->preamble_table = (preamble_t *)0;
-	
+	inst->threshold = 0.0f;
 	inst->normal_std = 0.0f;
 	
 	//	simulator
@@ -840,8 +852,10 @@ int set_system_config_parser(char *str, char *param, simulation_t *inst){
 	}else if(strstr(str, "-ALWAYS_TX_MSG3")){
 		cfg_always_tx_msg3 = 1;
         return 1;
+    }else if(strstr(str, "-THRESHOLD")){
+		sscanf(param, "%f", &inst->threshold); 
+        return 2;
     }
-	
 	
 	
 	return 1;
@@ -888,7 +902,9 @@ void get_system_config_parser(FILE *fin, simulation_t *inst){
 			fscanf(fin, "%f", &inst->mean_msg3_retransmit_latency);
 		}else if(strstr(cmd, "-MAX_HARQ_ROUND")){
 			fscanf(fin, "%d", &inst->msg3_harq_round_max);
-		}
+		}else if(strstr(cmd, "-THRESHOLD")){
+    		fscanf(fin, "%f", &inst->threshold); 
+        }
 	}
 	fseek(fin, 0, SEEK_SET);
 }
@@ -936,6 +952,7 @@ int main(int argc, char *argv[]){
             printf("Number of preamble :           %d\n", enhance_ra.number_of_preamble);
             printf("Number of UE :                 %d\n", enhance_ra.num_ue);
             printf("STD:                           %f\n", enhance_ra.normal_std);
+            printf("threshold :                    %f\n", enhance_ra.threshold);
             printf("Maximum retransmit times :     %d\n", enhance_ra.max_retransmit);
             printf("Uniform backoff window :       %d\n\n", enhance_ra.back_off_window_size);
             printf("RAs period :                   %f ms\n", enhance_ra.ra_period*1000);

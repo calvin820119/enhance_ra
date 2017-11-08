@@ -119,6 +119,7 @@ typedef struct simulation_s{
 	int one_shot_ue;
 	float ps;
 	float avg_trial;
+	float threshold;
 }simulation_t;
 
 
