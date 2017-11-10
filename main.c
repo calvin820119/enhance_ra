@@ -5,7 +5,7 @@
 #include "lcgrand.h"
 #include <string.h>
 
-#define SIM_ROUND 100 
+#define SIM_ROUND 100
  
 //#define file_input
 
@@ -29,6 +29,7 @@ static float time_next_event[num_normal_event];
 static int next_event_type;
 static FILE *fin;
 static FILE *fout;
+static FILE *fdebug;
 
 static char str_fin_name[] = "config.in";
 static char str_fout_name[50];
@@ -144,6 +145,9 @@ float exponetial(float mean){
 }
 
 int algo_msg3_tx_v1(simulation_t *inst, int ta, float ta_mean){
+    
+    //printf("%f\n", ta_mean);
+    
 	float diff = (float)ta - ta_mean;
 	int ret;
 	
@@ -277,7 +281,13 @@ inst->retransmit_count += ue->retransmit_counter;
 				}
 				//remove ue from heap
 				//inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
-				*ue = inst->ue_list[inst->one_shot_ue];
+		//		*ue = inst->ue_list[inst->one_shot_ue];
+				
+				ue_t temp;
+    					temp = inst->ue_list[ue - inst->ue_list];
+                        	inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
+                        	inst->ue_list[inst->one_shot_ue] = temp;
+				
 			//	printf("%f---------#0----------\n", sim_time);
                 min_heapify(inst, inst->ue_list, &ue);
             //    printf("---------@0----------\n");
@@ -341,7 +351,13 @@ inst->retransmit_count += ue->retransmit_counter;
 						//remove ue from heap
 						//    list index: ue-inst->ue_list
 						
-                        inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
+                       // inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
+                        
+                        ue_t temp;
+    					temp = inst->ue_list[ue - inst->ue_list];
+                        	inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
+                        	inst->ue_list[inst->one_shot_ue] = temp;
+                        
               //          printf("---------#2----------\n");
                         min_heapify(inst, inst->ue_list, &ue);
 					}
@@ -507,8 +523,10 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
     							inst->ue_list[inst->one_shot_ue].next->prev = &inst->ue_list[ue - inst->ue_list];
     						}
     					//remove ue from heap
+    					ue_t temp;
+    					temp = inst->ue_list[ue - inst->ue_list];
                         	inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
-                        	
+                        	inst->ue_list[inst->one_shot_ue] = temp;
                         //	printf("---------#5----------\n");
                         	min_heapify(inst, inst->ue_list, &ue);
     					}
@@ -592,14 +610,29 @@ void free_simulation(simulation_t *inst){
     free(inst->preamble_table);
 }
 
+void initialize_ue(simulation_t *inst){
+    int i;
+    float rand_radius;
+    float rand_angle;
+    
+    inst->ue_list = (ue_t *)malloc(inst->num_ue*sizeof(ue_t));
+	
+    for(i=0;i<inst->num_ue;++i){
+        rand_radius = inst->eNB_radius * lcgrand(3);
+        rand_angle = 2* pi * lcgrand(4);
+		inst->ue_list[i].location_x = rand_radius * cos( rand_angle );
+		inst->ue_list[i].location_y = rand_radius * sin( rand_angle );
+		inst->ue_list[i].distance = rand_radius;//swap issue
+	
+    }
+}
+
 void initialize_simulation(simulation_t *inst){
     int i, j;
     float rand_radius;
     float rand_angle;
     
-    inst->ue_list = (ue_t *)malloc(inst->num_ue*sizeof(ue_t));
-	inst->preamble_table = (preamble_t *)malloc(inst->number_of_preamble*sizeof(preamble_t));
-    inst->eNB_radius = 10000;	//	default 10,000 m, 10km
+    inst->preamble_table = (preamble_t *)malloc(inst->number_of_preamble*sizeof(preamble_t));
     
     sim_time = 0.0f;
     next_event_type = event_ra_period;
@@ -633,19 +666,22 @@ void initialize_simulation(simulation_t *inst){
         inst->ue_list[i].next = (ue_t *)0;
         inst->ue_list[i].prev = (ue_t *)0;
         inst->ue_list[i].access_delay = 0;
-        rand_radius = inst->eNB_radius * lcgrand(3);
-        rand_angle = 2* pi * lcgrand(4);
-		inst->ue_list[i].location_x = rand_radius * cos( rand_angle );
-		inst->ue_list[i].location_y = rand_radius * sin( rand_angle );
+        
 		inst->ue_list[i].ta = -1;
 		inst->ue_list[i].ta_mean = 0;
 		inst->ue_list[i].ta_max = 0;
 		inst->ue_list[i].ta_min = 0;
 		inst->ue_list[i].ta_count = 0;
-		inst->ue_list[i].distance = rand_radius;
+		
 		inst->ue_list[i].eNB_process_msg3 = 0;
 		inst->ue_list[i].done = 0;
 		inst->ue_list[i].ue_id = i;
+		
+		inst->ue_list[i].msg3_harq_round = 0;
+	    inst->ue_list[i].msg3_grant = 0.0f;
+	    inst->ue_list[i].msg3_ack = 0;
+	    
+	    rand_radius = inst->eNB_radius * lcgrand(3);
     }
     
     for(i=0;i<inst->number_of_preamble;++i){
@@ -767,6 +803,7 @@ void report(simulation_t *inst){
 #endif
     inst->avg_trial += ((float)inst->trial/inst->ras);
     inst->ps += ((float)inst->success/inst->attempt);
+    //printf("%f\n", (float)inst->success/inst->attempt);
 }
 
 void get_global_config_parser(FILE *fin){
@@ -940,11 +977,96 @@ int main(int argc, char *argv[]){
 		return 1;
 	}
 	
+	
+	if((FILE *)0 == (fdebug = fopen("debug.txt", "ab+"))){
+		return 1;
+	}
+	
+	initialize_ue(&enhance_ra);
+	
 	for(sim_count = 0; sim_count < SIM_ROUND; ++sim_count){
         
         //  TODO: maintain the ue instance, don't use free and re-allocation
         
         initialize_simulation(&enhance_ra);
+        
+        if(sim_count == 0 || sim_count == 99){
+           /* printf("%d %d %f %d %d %d %f %d \n%d %d %d %d %f %d \n%d %p %p %f %f %f %f\n\n", 
+        
+         enhance_ra.ue_list[3500].done,  
+	 enhance_ra.ue_list[3500].state,  
+	 enhance_ra.ue_list[3500].arrival_time,    
+	 enhance_ra.ue_list[3500].preamble_index,
+	 enhance_ra.ue_list[3500].retransmit_counter,
+	 enhance_ra.ue_list[3500].ta,
+	 enhance_ra.ue_list[3500].ta_mean,
+	 enhance_ra.ue_list[3500].ta_count,
+	 enhance_ra.ue_list[3500].ta_min,	
+	 enhance_ra.ue_list[3500].ta_max,
+	 enhance_ra.ue_list[3500].eNB_process_msg3,
+	 enhance_ra.ue_list[3500].msg3_harq_round,
+	 enhance_ra.ue_list[3500].msg3_grant,
+	 enhance_ra.ue_list[3500].msg3_ack,
+	 enhance_ra.ue_list[3500].ue_id,
+	enhance_ra.ue_list[3500].next,
+	enhance_ra.ue_list[3500].prev,
+	 enhance_ra.ue_list[3500].location_x,
+	 enhance_ra.ue_list[3500].location_y,
+	 enhance_ra.ue_list[3500].distance,
+	 enhance_ra.ue_list[3500].access_delay
+        
+        
+        );*/
+		/*
+		printf(" %d %d %d %f %f %f %f %f %p %d %p %d %d %d %d %d %d %d %d %d %d %f %f %f %d %d %f %f %f\n\n",
+		
+		 enhance_ra.total_ras,
+     enhance_ra.number_of_preamble,
+     enhance_ra.num_ue,
+    
+	 enhance_ra.mean_interarrival,	
+     enhance_ra.mean_rar_latency,	
+     enhance_ra.mean_msg3_latency,	
+     enhance_ra.mean_msg3_retransmit_latency,	
+    
+     enhance_ra.ra_period,
+    enhance_ra.ue_list,
+     enhance_ra.max_retransmit,	
+    enhance_ra.preamble_table,	
+     enhance_ra.back_off_window_size,	
+     enhance_ra.ras,
+     enhance_ra.failed,
+     enhance_ra.attempt,
+     enhance_ra.success,
+     enhance_ra.collide,
+     enhance_ra.collide_preamble,
+     enhance_ra.retransmit,
+     enhance_ra.trial,
+     enhance_ra.msg3_harq_round_max,	
+	 enhance_ra.total_access_delay,
+	 enhance_ra.eNB_radius,	
+	 enhance_ra.normal_std,
+     enhance_ra.retransmit_count,
+	 enhance_ra.one_shot_ue,
+	 enhance_ra.ps,
+	 enhance_ra.avg_trial,
+	 enhance_ra.threshold);
+		*/
+        }
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         if(0)
         if(cfg_print_output){
         
@@ -968,6 +1090,8 @@ int main(int argc, char *argv[]){
     	do{		
     	    timing(&enhance_ra);
     	    
+    	    //printf("%d\n", enhance_ra.one_shot_ue);
+    	    
     	    switch(next_event_type){
     	        case event_ra_period:
     				nprach_period_eNB(&enhance_ra);
@@ -975,6 +1099,7 @@ int main(int argc, char *argv[]){
     	        case event_stop:
                     if(cfg_print_output){
                     }
+                  //  printf("%f\n", sim_time);
     	            report(&enhance_ra);
     		    break;
     	        default:{
@@ -1001,8 +1126,9 @@ int main(int argc, char *argv[]){
     		
     	}while(event_stop != next_event_type);
     
-        free_simulation(&enhance_ra);
+        
     }
+    free_simulation(&enhance_ra);
     
     fprintf(fout, "%f\n", (float)enhance_ra.ps/SIM_ROUND);
     printf("ps            : %f\n", (float)enhance_ra.ps/SIM_ROUND);
