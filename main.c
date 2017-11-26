@@ -5,7 +5,7 @@
 #include "lcgrand.h"
 #include <string.h>
 
-#define SIM_ROUND 100
+#define SIM_ROUND 1000
  
 //#define file_input
 
@@ -109,7 +109,7 @@ void min_heapify(simulation_t *inst, ue_t *heap_root, ue_t **node){ //printf("1"
 			if(minimum->prev == minimum){
             	minimum->prev = p;
 			}
-            debug_heap(inst);
+            //debug_heap(inst);
             
             *node = minimum;
             
@@ -308,7 +308,8 @@ inst->retransmit_count += ue->retransmit_counter;
 		int decision;
 		
         if(cfg_algo_version == 1){
-            decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
+            //decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
+            decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v1(inst, ue->ta, ue->ta_mean));
         }else if(cfg_algo_version == 2){
             decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
         }
@@ -480,20 +481,14 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
 
     int decision;
     if(cfg_algo_version == 1){
-        decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
+        //decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
+        decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v1(inst, ue->ta, ue->ta_mean));
     }else if(cfg_algo_version == 2){
         decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
     }
 
 
-    ue->state = state3;
-    //TODO heapify
-    ue->arrival_time = sim_time + ue->msg3_grant;
-    		
-    //	printf("---------#6----------\n");
-    min_heapify(inst, inst->ue_list, &ue);
-    //printf("ue%d(%d) %p %p\n", ue->ue_id, ue->retransmit_counter, ue->next, ue->prev);
-    return;
+    
 
     if(ue->retransmit_counter >= inst->max_retransmit){
         
@@ -539,7 +534,16 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
                     }
     
     }else{
+        //
+    ue->state = state3;
+    //TODO heapify
+    ue->arrival_time = sim_time + ue->msg3_grant;
+    		
+    //	printf("---------#6----------\n");
+    min_heapify(inst, inst->ue_list, &ue);
+    //printf("ue%d(%d) %p %p\n", ue->ue_id, ue->retransmit_counter, ue->next, ue->prev);
     
+    return;     //  version 1, version 2
 
 
     	if( 1 == decision ){
@@ -623,6 +627,13 @@ void initialize_ue(simulation_t *inst){
 		inst->ue_list[i].location_x = rand_radius * cos( rand_angle );
 		inst->ue_list[i].location_y = rand_radius * sin( rand_angle );
 		inst->ue_list[i].distance = rand_radius;//swap issue
+		
+		
+		
+		inst->ue_list[i].ta_mean = 0;
+		inst->ue_list[i].ta_max = 0;
+		inst->ue_list[i].ta_min = 0;
+		inst->ue_list[i].ta_count = 0;
 	
     }
 }
@@ -668,10 +679,6 @@ void initialize_simulation(simulation_t *inst){
         inst->ue_list[i].access_delay = 0;
         
 		inst->ue_list[i].ta = -1;
-		inst->ue_list[i].ta_mean = 0;
-		inst->ue_list[i].ta_max = 0;
-		inst->ue_list[i].ta_min = 0;
-		inst->ue_list[i].ta_count = 0;
 		
 		inst->ue_list[i].eNB_process_msg3 = 0;
 		inst->ue_list[i].done = 0;
@@ -984,108 +991,28 @@ int main(int argc, char *argv[]){
 	
 	initialize_ue(&enhance_ra);
 	
+	if(cfg_print_output){
+       
+        printf("-------------------------------------------------\n");
+        printf("Number of preamble :           %d\n", enhance_ra.number_of_preamble);
+        printf("Number of UE :                 %d\n", enhance_ra.num_ue);
+        printf("STD:                           %f\n", enhance_ra.normal_std);
+        printf("threshold :                    %f\n", enhance_ra.threshold);
+        printf("Maximum retransmit times :     %d\n", enhance_ra.max_retransmit);
+        printf("Uniform backoff window :       %d\n\n", enhance_ra.back_off_window_size);
+        printf("RAs period :                   %f ms\n", enhance_ra.ra_period*1000);
+        printf("Each UE mean inter-arrival :   %f ms\n", enhance_ra.mean_interarrival*1000);
+        printf("Each UE mean rar latency :     %f ms\n", enhance_ra.mean_rar_latency*1000);
+        printf("Each UE mean msg3 latency :    %f ms\n", enhance_ra.mean_msg3_latency*1000);
+        printf("Each UE mean re-msg3 latency : %f ms\n", enhance_ra.mean_msg3_retransmit_latency*1000);
+        printf("Maximum number of harq round : %d\n", enhance_ra.msg3_harq_round_max);
+        printf("Total simulated RAs :          %d (=%f sec)\n", enhance_ra.total_ras, enhance_ra.total_ras*enhance_ra.ra_period);
+        printf("-------------------------------------------------\n\nrun...\n");
+    }
+	
 	for(sim_count = 0; sim_count < SIM_ROUND; ++sim_count){
         
-        //  TODO: maintain the ue instance, don't use free and re-allocation
-        
         initialize_simulation(&enhance_ra);
-        
-        if(sim_count == 0 || sim_count == 99){
-           /* printf("%d %d %f %d %d %d %f %d \n%d %d %d %d %f %d \n%d %p %p %f %f %f %f\n\n", 
-        
-         enhance_ra.ue_list[3500].done,  
-	 enhance_ra.ue_list[3500].state,  
-	 enhance_ra.ue_list[3500].arrival_time,    
-	 enhance_ra.ue_list[3500].preamble_index,
-	 enhance_ra.ue_list[3500].retransmit_counter,
-	 enhance_ra.ue_list[3500].ta,
-	 enhance_ra.ue_list[3500].ta_mean,
-	 enhance_ra.ue_list[3500].ta_count,
-	 enhance_ra.ue_list[3500].ta_min,	
-	 enhance_ra.ue_list[3500].ta_max,
-	 enhance_ra.ue_list[3500].eNB_process_msg3,
-	 enhance_ra.ue_list[3500].msg3_harq_round,
-	 enhance_ra.ue_list[3500].msg3_grant,
-	 enhance_ra.ue_list[3500].msg3_ack,
-	 enhance_ra.ue_list[3500].ue_id,
-	enhance_ra.ue_list[3500].next,
-	enhance_ra.ue_list[3500].prev,
-	 enhance_ra.ue_list[3500].location_x,
-	 enhance_ra.ue_list[3500].location_y,
-	 enhance_ra.ue_list[3500].distance,
-	 enhance_ra.ue_list[3500].access_delay
-        
-        
-        );*/
-		/*
-		printf(" %d %d %d %f %f %f %f %f %p %d %p %d %d %d %d %d %d %d %d %d %d %f %f %f %d %d %f %f %f\n\n",
-		
-		 enhance_ra.total_ras,
-     enhance_ra.number_of_preamble,
-     enhance_ra.num_ue,
-    
-	 enhance_ra.mean_interarrival,	
-     enhance_ra.mean_rar_latency,	
-     enhance_ra.mean_msg3_latency,	
-     enhance_ra.mean_msg3_retransmit_latency,	
-    
-     enhance_ra.ra_period,
-    enhance_ra.ue_list,
-     enhance_ra.max_retransmit,	
-    enhance_ra.preamble_table,	
-     enhance_ra.back_off_window_size,	
-     enhance_ra.ras,
-     enhance_ra.failed,
-     enhance_ra.attempt,
-     enhance_ra.success,
-     enhance_ra.collide,
-     enhance_ra.collide_preamble,
-     enhance_ra.retransmit,
-     enhance_ra.trial,
-     enhance_ra.msg3_harq_round_max,	
-	 enhance_ra.total_access_delay,
-	 enhance_ra.eNB_radius,	
-	 enhance_ra.normal_std,
-     enhance_ra.retransmit_count,
-	 enhance_ra.one_shot_ue,
-	 enhance_ra.ps,
-	 enhance_ra.avg_trial,
-	 enhance_ra.threshold);
-		*/
-        }
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        if(0)
-        if(cfg_print_output){
-        
-            printf("-------------------------------------------------\n");
-            printf("Number of preamble :           %d\n", enhance_ra.number_of_preamble);
-            printf("Number of UE :                 %d\n", enhance_ra.num_ue);
-            printf("STD:                           %f\n", enhance_ra.normal_std);
-            printf("threshold :                    %f\n", enhance_ra.threshold);
-            printf("Maximum retransmit times :     %d\n", enhance_ra.max_retransmit);
-            printf("Uniform backoff window :       %d\n\n", enhance_ra.back_off_window_size);
-            printf("RAs period :                   %f ms\n", enhance_ra.ra_period*1000);
-            printf("Each UE mean inter-arrival :   %f ms\n", enhance_ra.mean_interarrival*1000);
-            printf("Each UE mean rar latency :     %f ms\n", enhance_ra.mean_rar_latency*1000);
-            printf("Each UE mean msg3 latency :    %f ms\n", enhance_ra.mean_msg3_latency*1000);
-            printf("Each UE mean re-msg3 latency : %f ms\n", enhance_ra.mean_msg3_retransmit_latency*1000);
-            printf("Maximum number of harq round : %d\n", enhance_ra.msg3_harq_round_max);
-            printf("Total simulated RAs :          %d (=%f sec)\n", enhance_ra.total_ras, enhance_ra.total_ras*enhance_ra.ra_period);
-            printf("-------------------------------------------------\n\nrun...\n");
-        }
         
     	do{		
     	    timing(&enhance_ra);
@@ -1128,6 +1055,12 @@ int main(int argc, char *argv[]){
     
         
     }
+    
+   /* int i;
+    for(i=0; i<enhance_ra.num_ue; ++i){
+        printf(" %d %d\n", (int)enhance_ra.ue_list[i].ta_mean, (int)enhance_ra.ue_list[i].ta_mean - (int)(enhance_ra.ue_list[i].distance/156.0));
+    }*/
+    
     free_simulation(&enhance_ra);
     
     fprintf(fout, "%f\n", (float)enhance_ra.ps/SIM_ROUND);
