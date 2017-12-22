@@ -5,8 +5,7 @@
 #include "lcgrand.h"
 #include <string.h>
 
-#define SIM_ROUND 1000
- 
+
 //#define file_input
 
 static char cfg_always_tx_msg3;
@@ -34,8 +33,16 @@ static FILE *fdebug;
 static char str_fin_name[] = "config.in";
 static char str_fout_name[50];
 
+#define SIM_ROUND 10000
+#define TRAINING_COUNT 100
+static int cfg_msg2_apply = 1;
+static int cfg_sim_round = 10000;
+static int cfg_training_count = 100;    // training count >= ta count
+static int cfg_fix_mean = 0;
+
 static int cfg_print_output;
 static distribution_t cfg_ta_distribution;
+
 
 void debug_heap(simulation_t *inst){	return;
     int i;
@@ -187,6 +194,7 @@ int msg2_find_ta(simulation_t *inst, ue_t *head){
 	float min_distance;
 	int ret;
 	float ta;
+	float normal_out;
 	min_distance = p->distance;
 	min_ue = p;
 	while((ue_t *)0 != p){
@@ -197,10 +205,16 @@ int msg2_find_ta(simulation_t *inst, ue_t *head){
 		p = p->next;
 	}
 	//	156m per bit
-	ta = (int)(min_distance/156.0);	//	156m calculate by Ts x speed_of_light
+	//ta = (int)((min_distance/156.0f)+0.5f);	//	156m calculate by Ts x speed_of_light
 	
-	ret = MAX((int)normal(ta, inst->normal_std), 0);
-
+	ta = (int)(min_distance/156.0f);
+	//ta = (min_distance/156.0f);
+	
+    normal_out = normal(ta, inst->normal_std);
+	//normal_out = ta + exponetial(inst->normal_std);//20171223 change to exp
+	
+    //ret = MAX(normal_out, 0);
+    ret = MAX((int)normal(ta, inst->normal_std), 0);
 	return ret;
 }
 
@@ -250,18 +264,43 @@ void process_dci(simulation_t *inst, ue_t *ue){
 		inst->success++;
 		inst->total_access_delay += sim_time - ue->access_delay;
 inst->retransmit_count += ue->retransmit_counter;
-		if(ue->ta_count == 0){
-			ue->ta_mean = ue->ta;
-			ue->ta_max =  ue->ta;
-			ue->ta_min =  ue->ta;
-		}else{
-			ue->ta_mean = ((((double)ue->ta/ue->ta_count)+ue->ta_mean) / (ue->ta_count+1))*ue->ta_count;
-			ue->ta_min = MIN(ue->ta_min, ue->ta);
-			ue->ta_max = MAX(ue->ta_max, ue->ta);
-		}
-        			
-		ue->ta_count++;
 
+        //if(ue->ta != 0){
+            
+            if(ue->ta_count == 0){
+    			ue->ta_mean = ue->ta;
+    			ue->ta_max =  ue->ta;
+    			ue->ta_min =  ue->ta;
+    		}else{
+    			ue->ta_mean = ((ue->ta_mean*ue->ta_count) + ue->ta )/(ue->ta_count+1); //((((double)ue->ta/ue->ta_count)+ue->ta_mean) / (ue->ta_count+1))*ue->ta_count;
+    			ue->ta_min = MIN(ue->ta_min, ue->ta);
+    			ue->ta_max = MAX(ue->ta_max, ue->ta);
+    		    
+            }
+            ue->ta_count++;
+            
+            
+        //**********************  for debugging
+		/*static int x;
+		static double y;
+		if(ue->ta_count == cfg_training_count){
+		    printf("%d %f\n", ue->ue_id, ue->ta_mean - (ue->distance/156.0));
+		    //fprintf(fdebug, "%f\n", ue->ta_mean - (ue->distance/156.0));
+		    x++;
+		    y+=(ue->ta_mean - (ue->distance/156.0));
+		    if(x >= inst->num_ue){
+		        printf("avg. diff:%f\nx:%d", y/x, x);
+            }
+        }*/
+        //***********************
+            
+       // }
+		
+        			
+		
+		
+		
+        
 		ue->msg3_harq_round = 0;
 		ue->retransmit_counter = 0;
 		ue->state = idle;
@@ -284,9 +323,9 @@ inst->retransmit_count += ue->retransmit_counter;
 		//		*ue = inst->ue_list[inst->one_shot_ue];
 				
 				ue_t temp;
-    					temp = inst->ue_list[ue - inst->ue_list];
-                        	inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
-                        	inst->ue_list[inst->one_shot_ue] = temp;
+    			temp = inst->ue_list[ue - inst->ue_list];
+                inst->ue_list[ue - inst->ue_list] = inst->ue_list[inst->one_shot_ue];
+                inst->ue_list[inst->one_shot_ue] = temp;
 				
 			//	printf("%f---------#0----------\n", sim_time);
                 min_heapify(inst, inst->ue_list, &ue);
@@ -309,9 +348,14 @@ inst->retransmit_count += ue->retransmit_counter;
 		
         if(cfg_algo_version == 1){
             //decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
-            decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v1(inst, ue->ta, ue->ta_mean));
+            if(cfg_fix_mean == 1){
+                decision = (1 == algo_msg3_tx_v1(inst, ue->ta, (int)((ue->distance/156.0f)+0.5f)));
+            }else{
+                decision = (cfg_training_count >= ue->ta_count) || (1 == algo_msg3_tx_v1(inst, ue->ta, ue->ta_mean));
+            }
+            
         }else if(cfg_algo_version == 2){
-            decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
+            decision = (cfg_training_count >= ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
         }
 		
 		if(ue->msg3_harq_round < inst->msg3_harq_round_max && ( 1 == decision) ){
@@ -480,15 +524,23 @@ void ue_arrival(simulation_t *inst, ue_t *ue){
 void ue_decode_rar(simulation_t *inst, ue_t *ue){
 
     int decision;
-    if(cfg_algo_version == 1){
+    /*if(cfg_algo_version == 1){
         //decision = algo_msg3_tx_v1(inst, ue->ta, (int)(ue->distance/156.0));
-        decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v1(inst, ue->ta, ue->ta_mean));
+        decision = (cfg_training_count >= ue->ta_count) || (1 == algo_msg3_tx_v1(inst, ue->ta, ue->ta_mean));
     }else if(cfg_algo_version == 2){
-        decision = (0 == ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
-    }
-
-
+        decision = (cfg_training_count >= ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
+    }*/
     
+    if(cfg_algo_version == 1){
+        if(cfg_fix_mean == 1){
+            decision = (1 == algo_msg3_tx_v1(inst, ue->ta, (int)((ue->distance/156.0f)+0.5f)));
+        }else{
+            decision = (cfg_training_count >= ue->ta_count) || (1 == algo_msg3_tx_v1(inst, ue->ta, ue->ta_mean));
+        }
+            
+    }else if(cfg_algo_version == 2){
+        decision = (cfg_training_count >= ue->ta_count) || (1 == algo_msg3_tx_v2(ue->ta, ue->ta_mean, ue->ta_max, ue->ta_min, ue->msg3_harq_round));
+    }
 
     if(ue->retransmit_counter >= inst->max_retransmit){
         
@@ -534,49 +586,48 @@ void ue_decode_rar(simulation_t *inst, ue_t *ue){
                     }
     
     }else{
-        //
-    ue->state = state3;
-    //TODO heapify
-    ue->arrival_time = sim_time + ue->msg3_grant;
-    		
-    //	printf("---------#6----------\n");
-    min_heapify(inst, inst->ue_list, &ue);
-    //printf("ue%d(%d) %p %p\n", ue->ue_id, ue->retransmit_counter, ue->next, ue->prev);
-    
-    return;     //  version 1, version 2
 
-
-    	if( 1 == decision ){
-    		ue->state = state3;
-    		//TODO heapify
-    		ue->arrival_time = sim_time + ue->msg3_grant;
-    		
-    	//	printf("---------#6----------\n");
-    		min_heapify(inst, inst->ue_list, &ue);
-    	}else{	//	give up at rar stage
-    		
-    		ue->retransmit_counter += 1;
-    		ue->state = backoff;
-    		
-    		
-    		ue->msg3_harq_round = 0;
-    		
-    		if((ue_t *)0 != ue->prev){
-    			ue->prev->next = ue->next;
-    		}
-    		if((ue_t *)0 != ue->next){
-    			ue->next->prev = ue->prev;
-    		}
-    
-    		ue->next = (ue_t *)0;
-    		ue->prev = (ue_t *)0;
+        if(cfg_msg2_apply == 0){
+            ue->state = state3;
             
-            //TODO: heapify
-    		ue->arrival_time = sim_time + (inst->ra_period * ceil(inst->back_off_window_size*lcgrand(4)));
-    		
-    //		printf("---------#7----------\n");
-    		min_heapify(inst, inst->ue_list, &ue);
-    	}
+            ue->arrival_time = sim_time + ue->msg3_grant;
+            		
+            min_heapify(inst, inst->ue_list, &ue);
+            
+            //return;     //  version 1, version 2
+        }else{
+    
+        	if( 1 == decision ){
+        		ue->state = state3;
+        		//TODO heapify
+        		ue->arrival_time = sim_time + ue->msg3_grant;
+        		
+        	//	printf("---------#6----------\n");
+        		min_heapify(inst, inst->ue_list, &ue);
+        	}else{	//	give up at rar stage
+        		
+        		ue->retransmit_counter += 1;
+        		ue->state = backoff;
+        		
+        		ue->msg3_harq_round = 0;
+        		
+        		if((ue_t *)0 != ue->prev){
+        			ue->prev->next = ue->next;
+        		}
+        		if((ue_t *)0 != ue->next){
+        			ue->next->prev = ue->prev;
+        		}
+        
+        		ue->next = (ue_t *)0;
+        		ue->prev = (ue_t *)0;
+                
+                //TODO: heapify
+        		ue->arrival_time = sim_time + (inst->ra_period * ceil(inst->back_off_window_size*lcgrand(4)));
+        		
+        //		printf("---------#7----------\n");
+        		min_heapify(inst, inst->ue_list, &ue);
+        	}
+        }
     }
 }
 
@@ -807,9 +858,12 @@ void report(simulation_t *inst){
     //	performance index now we only consider Ps 
     fprintf(fout, "%f\n",  (float)inst->success/inst->attempt);
     
+    system("pause");
 #endif
     inst->avg_trial += ((float)inst->trial/inst->ras);
-    inst->ps += ((float)inst->success/inst->attempt);
+    
+    inst->ps += ((double)inst->success/inst->attempt);
+    
     //printf("%f\n", (float)inst->success/inst->attempt);
 }
 
@@ -843,6 +897,13 @@ void get_global_config_parser(FILE *fin){
 			}
         }else if(strstr(cmd, "-ALGO_VERSION")){
             fscanf(fin, " %d", &cfg_algo_version);
+        }else if(strstr(cmd, "-ALGO_APPLY")){
+            fscanf(fin, " %s", param);
+		    if(strstr(param, "MSG2")){
+				cfg_msg2_apply = 1;
+			}else if(strstr(param, "MSG3")){
+				cfg_msg2_apply = 0;
+			}
         }
 	}
 	fseek(fin, 0, SEEK_SET);
@@ -899,8 +960,13 @@ int set_system_config_parser(char *str, char *param, simulation_t *inst){
     }else if(strstr(str, "-THRESHOLD")){
 		sscanf(param, "%f", &inst->threshold); 
         return 2;
+    }else if(strstr(str, "-TRAIN_COUNT")){
+		sscanf(param, "%d", &cfg_training_count); 
+        return 2;
+    }else if(strstr(str, "-SIM_ROUND")){
+		sscanf(param, "%d", &cfg_sim_round); 
+        return 2;
     }
-	
 	
 	return 1;
 }
@@ -948,7 +1014,15 @@ void get_system_config_parser(FILE *fin, simulation_t *inst){
 			fscanf(fin, "%d", &inst->msg3_harq_round_max);
 		}else if(strstr(cmd, "-THRESHOLD")){
     		fscanf(fin, "%f", &inst->threshold); 
+        }else if(strstr(cmd, "-TRAIN_COUNT")){
+            fscanf(fin, "%d", &cfg_training_count); 
+        }else if(strstr(cmd, "-SIM_ROUND")){
+    		fscanf(fin, "%d", &cfg_sim_round); 
+        }else if(strstr(cmd, "-FIX_TA_MEAN")){
+    		cfg_fix_mean = 1;
         }
+        
+        
 	}
 	fseek(fin, 0, SEEK_SET);
 }
@@ -1007,10 +1081,15 @@ int main(int argc, char *argv[]){
         printf("Each UE mean re-msg3 latency : %f ms\n", enhance_ra.mean_msg3_retransmit_latency*1000);
         printf("Maximum number of harq round : %d\n", enhance_ra.msg3_harq_round_max);
         printf("Total simulated RAs :          %d (=%f sec)\n", enhance_ra.total_ras, enhance_ra.total_ras*enhance_ra.ra_period);
+        printf("Applied algorithm :            %s\n", (cfg_msg2_apply==1)?"MSG2":"MSG3");
+        printf("Training count :               %d\n", cfg_training_count);
+        printf("Simulation rounds :            %d\n", cfg_sim_round);
         printf("-------------------------------------------------\n\nrun...\n");
     }
 	
-	for(sim_count = 0; sim_count < SIM_ROUND; ++sim_count){
+	//cfg_training_count = (int)(20 * enhance_ra.normal_std);
+	
+	for(sim_count = 0; sim_count < cfg_sim_round; ++sim_count){
         
         initialize_simulation(&enhance_ra);
         
@@ -1063,9 +1142,9 @@ int main(int argc, char *argv[]){
     
     free_simulation(&enhance_ra);
     
-    fprintf(fout, "%f\n", (float)enhance_ra.ps/SIM_ROUND);
-    printf("ps            : %f\n", (float)enhance_ra.ps/SIM_ROUND);
-	printf("avg. ue in ra : %f\n", (float)enhance_ra.avg_trial/SIM_ROUND);
+    fprintf(fout, "%f\n", enhance_ra.ps/cfg_sim_round);
+    printf("ps            : %f\n", enhance_ra.ps/cfg_sim_round);
+	printf("avg. ue in ra : %f\n", (float)enhance_ra.avg_trial/cfg_sim_round);
     
 #ifdef file_input
 	fclose(fin);

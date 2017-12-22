@@ -105,7 +105,7 @@ typedef struct simulation_s{
 	float normal_std;
     int retransmit_count;//
 	int one_shot_ue;//
-	float ps;
+	double ps;
 	float avg_trial;
 	float threshold;
 }simulation_t;
